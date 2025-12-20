@@ -1,3 +1,78 @@
+# Inspiration: CardiAnx-1
+
+## Context and Purpose
+
+This document contains a Markdown adaptation of the *CardiAnx-1* conceptual
+research paper, originally authored as an independent scientific manuscript
+exploring a dual-domain pharmacological design space for heart–brain
+comorbidity.
+
+The CardiAnx-1 work is included in the CuraFrame repository **solely as an
+intellectual inspiration** and as an example of the kind of disciplined,
+constraint-driven reasoning that motivated the development of the CuraFrame
+framework.
+
+---
+
+## Scope and Boundaries
+
+CardiAnx-1 is a **theoretical construct**.
+
+It does **not** propose a validated drug candidate, clinical protocol, or
+therapeutic recommendation. No chemical structures are asserted, no clinical
+claims are made, and no translational conclusions are implied.
+
+The manuscript operates at the level of:
+- conceptual target-profile reasoning,
+- classical pharmacological constraints,
+- qualitative systems-level modeling.
+
+Any discussion of coupled cardiac and limbic dynamics is intended as a
+high-level interpretive framework, not as a predictive or clinical model.
+
+---
+
+## Relationship to CuraFrame
+
+CuraFrame is **not an implementation of CardiAnx-1**.
+
+Rather, the CardiAnx-1 paper helped crystallize several core principles that
+CuraFrame now generalizes, including:
+- safety-first constraint reasoning,
+- explicit acknowledgment of uncertainty,
+- rejection as an informative outcome,
+- and restraint in claims beyond available evidence.
+
+CuraFrame is designed to support many possible conceptual explorations beyond
+CardiAnx-1, across different indications, domains, and therapeutic hypotheses.
+
+---
+
+## Disclaimer
+
+This document is provided for scientific context only.
+
+Nothing in this file should be interpreted as medical advice, clinical
+guidance, or endorsement of a specific therapeutic approach. Any movement
+from conceptual reasoning to real-world application would require extensive
+independent validation, regulatory review, and ethical oversight.
+
+---
+
+## Why This Document Is Preserved
+
+Scientific frameworks do not emerge in isolation.
+
+This document is preserved to:
+- document the intellectual lineage of CuraFrame,
+- demonstrate disciplined hypothesis formation,
+- and illustrate how careful constraint reasoning precedes implementation.
+
+Its inclusion reflects CuraFrame’s commitment to transparency, humility, and
+responsible scientific practice.
+
+---
+
 # CardiAnx-1: A Conceptual Dual-Domain β₁-Blocker / 5-HT₁ₐ Hybrid for Heart–Brain Comorbidity
 
 **Marcel Krüger¹ · Don Feeney²³**
