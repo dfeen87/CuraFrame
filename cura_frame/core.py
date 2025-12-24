@@ -495,6 +495,7 @@ class CuraFrame:
 
         violations: List[Violation] = []
         warnings: List[str] = []
+        evaluated_constraints = 0
         candidate_name = candidate.name if hasattr(candidate, 'name') else None
 
         # Evaluate each constraint
@@ -529,6 +530,7 @@ class CuraFrame:
                 )
                 self.evaluation_history.append(result)
                 return result
+            evaluated_constraints += 1
 
             # Record violation if constraint not satisfied
             if not satisfied:
@@ -561,6 +563,9 @@ class CuraFrame:
         if violations:
             status = EvaluationStatus.REJECTED
             notes = f"Failed {len(violations)} constraint(s)"
+        elif warnings and evaluated_constraints == 0:
+            status = EvaluationStatus.INDETERMINATE
+            notes = "Insufficient data to evaluate any constraints"
         else:
             status = EvaluationStatus.ACCEPTED
             notes = "All constraints satisfied"
