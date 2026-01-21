@@ -140,7 +140,7 @@ A rejected candidate includes:
 
 ### From Source
 ```bash
-git clone https://github.com/yourusername/CuraFrame.git
+git clone https://github.com/dfeen87/CuraFrame.git
 cd CuraFrame
 pip install -e .
 ```
@@ -361,7 +361,7 @@ If you use CuraFrame in your research or reference its design principles, please
   title = {CuraFrame: Constraint-Driven Therapeutic Design Reasoning},
   author = {Feeney, Don},
   year = {2025},
-  url = {https://github.com/yourusername/CuraFrame}
+  url = {https://github.com/dfeen87/CuraFrame}
 }
 ```
 
