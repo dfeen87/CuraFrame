@@ -372,16 +372,14 @@ class PopulationStratification:
         modifiers = self.populations[population]
 
         for constraint in constraints:
+            c = constraint.copy()
             if constraint.name in modifiers:
-                c = constraint.copy()
                 c.apply_modifier(modifiers[constraint.name])
-                adjusted.append(c)
                 logger.debug(
                     f"Applied {population} modifier to {constraint.name}: "
                     f"{constraint.threshold} -> {c.threshold}"
                 )
-            else:
-                adjusted.append(constraint)
+            adjusted.append(c)
 
         return adjusted
 
@@ -496,6 +494,7 @@ class CuraFrame:
         violations: List[Violation] = []
         warnings: List[str] = []
         evaluated_constraints = 0
+        missing_constraints = 0
         candidate_name = candidate.name if hasattr(candidate, 'name') else None
 
         # Evaluate each constraint
@@ -516,6 +515,7 @@ class CuraFrame:
                     warnings.append(
                         f"Property '{constraint.name}' missing, constraint skipped"
                     )
+                    missing_constraints += 1
                     continue
 
             # Evaluate constraint
@@ -563,9 +563,15 @@ class CuraFrame:
         if violations:
             status = EvaluationStatus.REJECTED
             notes = f"Failed {len(violations)} constraint(s)"
-        elif warnings and evaluated_constraints == 0:
+        elif evaluated_constraints == 0:
             status = EvaluationStatus.INDETERMINATE
             notes = "Insufficient data to evaluate any constraints"
+        elif missing_constraints > 0:
+            status = EvaluationStatus.INDETERMINATE
+            notes = (
+                f"Evaluated {evaluated_constraints} constraint(s); "
+                f"skipped {missing_constraints} due to missing data"
+            )
         else:
             status = EvaluationStatus.ACCEPTED
             notes = "All constraints satisfied"
