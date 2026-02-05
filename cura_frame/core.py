@@ -563,15 +563,21 @@ class CuraFrame:
         if violations:
             status = EvaluationStatus.REJECTED
             notes = f"Failed {len(violations)} constraint(s)"
+        elif missing_constraints > 0:
+            status = EvaluationStatus.INDETERMINATE
+            if evaluated_constraints == 0:
+                notes = (
+                    f"Skipped {missing_constraints} constraint(s) due to "
+                    "missing data"
+                )
+            else:
+                notes = (
+                    f"Evaluated {evaluated_constraints} constraint(s); "
+                    f"skipped {missing_constraints} due to missing data"
+                )
         elif evaluated_constraints == 0:
             status = EvaluationStatus.INDETERMINATE
             notes = "Insufficient data to evaluate any constraints"
-        elif missing_constraints > 0:
-            status = EvaluationStatus.INDETERMINATE
-            notes = (
-                f"Evaluated {evaluated_constraints} constraint(s); "
-                f"skipped {missing_constraints} due to missing data"
-            )
         else:
             status = EvaluationStatus.ACCEPTED
             notes = "All constraints satisfied"
