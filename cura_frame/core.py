@@ -426,6 +426,8 @@ class CuraFrame:
         self.safety_constraints = safety_constraints
         self.population_stratifier = PopulationStratification()
         self.evaluation_history: List[EvaluationResult] = []
+        self._constraints_by_name: Dict[str, Constraint] = {}
+        self._population_constraints_cache: Dict[Optional[str], List[Constraint]] = {}
         
         # Validate constraints at initialization
         self._validate_constraints()
@@ -433,10 +435,12 @@ class CuraFrame:
     def _validate_constraints(self) -> None:
         """Ensure all constraints are properly configured."""
         seen_names = set()
+        constraints_by_name: Dict[str, Constraint] = {}
         for constraint in self.safety_constraints:
             if constraint.name in seen_names:
                 raise ValueError(f"Duplicate constraint name: {constraint.name}")
             seen_names.add(constraint.name)
+            constraints_by_name[constraint.name] = constraint
             
             # Warn about low-confidence critical constraints
             if constraint.severity == Severity.CRITICAL:
@@ -446,6 +450,8 @@ class CuraFrame:
                         f"low confidence ({constraint.provenance.confidence:.2f}). "
                         "Consider additional validation."
                     )
+        self._constraints_by_name = constraints_by_name
+        self._population_constraints_cache.clear()
 
     def add_population(
         self,
@@ -460,6 +466,21 @@ class CuraFrame:
             modifiers: Constraint adjustments for this population
         """
         self.population_stratifier.add_population(name, modifiers)
+        self._population_constraints_cache.clear()
+
+    def _get_constraints_for_population(
+        self,
+        population: Optional[str]
+    ) -> List[Constraint]:
+        if population in self._population_constraints_cache:
+            return self._population_constraints_cache[population]
+
+        constraints = self.population_stratifier.apply(
+            population,
+            self.safety_constraints
+        )
+        self._population_constraints_cache[population] = constraints
+        return constraints
 
     def evaluate(
         self,
@@ -486,10 +507,7 @@ class CuraFrame:
         """
         
         # Apply population-specific constraint adjustments
-        constraints = self.population_stratifier.apply(
-            population,
-            self.safety_constraints
-        )
+        constraints = self._get_constraints_for_population(population)
 
         violations: List[Violation] = []
         warnings: List[str] = []
@@ -563,24 +581,24 @@ class CuraFrame:
         if violations:
             status = EvaluationStatus.REJECTED
             notes = f"Failed {len(violations)} constraint(s)"
-        elif missing_constraints > 0:
+        elif evaluated_constraints == 0:
             status = EvaluationStatus.INDETERMINATE
-            if evaluated_constraints == 0:
+            if missing_constraints > 0:
                 notes = (
                     f"Skipped {missing_constraints} constraint(s) due to "
                     "missing data"
                 )
             else:
+                notes = "Insufficient data to evaluate any constraints"
+        else:
+            status = EvaluationStatus.ACCEPTED
+            if missing_constraints > 0:
                 notes = (
                     f"Evaluated {evaluated_constraints} constraint(s); "
                     f"skipped {missing_constraints} due to missing data"
                 )
-        elif evaluated_constraints == 0:
-            status = EvaluationStatus.INDETERMINATE
-            notes = "Insufficient data to evaluate any constraints"
-        else:
-            status = EvaluationStatus.ACCEPTED
-            notes = "All constraints satisfied"
+            else:
+                notes = "All constraints satisfied"
 
         result = EvaluationResult(
             status=status,
@@ -595,14 +613,11 @@ class CuraFrame:
 
     def get_constraint(self, name: str) -> Optional[Constraint]:
         """Retrieve a constraint by name."""
-        for c in self.safety_constraints:
-            if c.name == name:
-                return c
-        return None
+        return self._constraints_by_name.get(name)
 
     def list_constraints(self) -> List[str]:
         """Return names of all registered constraints."""
-        return [c.name for c in self.safety_constraints]
+        return list(self._constraints_by_name.keys())
 
     def get_history(self, candidate_name: Optional[str] = None) -> List[EvaluationResult]:
         """
