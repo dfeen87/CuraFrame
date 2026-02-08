@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install CuraFrame
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+          pip install -e .
+
+      - name: Import sanity check
+        run: python -c "import cura_frame"
+
+      - name: Run tests
+        run: pytest
+
+      - name: CLI smoke test
+        run: python -m cura_frame.cli --help
+
+      - name: Bytecode compile check
+        run: python -m compileall cura_frame
