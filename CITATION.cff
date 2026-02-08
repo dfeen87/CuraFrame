@@ -1,0 +1,43 @@
+cff-version: 1.2.0
+title: CuraFrame
+message: >
+  If you use CuraFrame in academic, technical, or policy-related work,
+  please cite it using the information below.
+type: software
+
+authors:
+  - given-names: Don Michael
+    family-names: Feeney Jr.
+    email: dfeen87@gmail.com
+    affiliation: Independent Researcher
+
+abstract: >
+  CuraFrame is a constraint-driven framework for transparent, safety-first
+  reasoning about hypothetical therapeutic designs. It evaluates explicit
+  pharmacological and population-specific limits, causing unsafe ideas to fail
+  early, clearly, and audibly—without automating discovery. CuraFrame is designed
+  to support rigorous reasoning, documentation, and auditability rather than
+  autonomous drug design.
+
+keywords:
+  - therapeutic safety
+  - constraint-based reasoning
+  - pharmacology
+  - hypothetical design
+  - AI safety
+  - bioethics
+  - risk mitigation
+  - transparent reasoning
+
+license: MIT
+repository-code: https://github.com/dfeen87/CuraFrame
+url: https://github.com/dfeen87/CuraFrame
+
+preferred-citation:
+  type: software
+  authors:
+    - given-names: Don Michael
+      family-names: Feeney Jr.
+  title: CuraFrame
+  year: 2026
+  url: https://github.com/dfeen87/CuraFrame
