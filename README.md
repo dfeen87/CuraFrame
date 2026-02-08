@@ -309,6 +309,20 @@ Tests focus on:
 
 ---
 
+## Continuous Integration
+
+CI is intentionally lightweight and focused on tooling reliability:
+
+- Installs CuraFrame in a clean environment
+- Runs the test suite
+- Verifies the CLI entrypoint works in headless CI
+
+CI intentionally does **not** validate scientific correctness, performance, or
+external integrations. It is designed to ensure CuraFrame is safe to depend on
+in automation pipelines, not to certify therapeutic claims.
+
+---
+
 ## Documentation (Required Reading)
 
 The following documents define CuraFrame's scope and intent and **should be read** before extending or using the framework:
