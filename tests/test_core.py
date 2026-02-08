@@ -31,6 +31,12 @@ from cura_frame.comparators import (
     ratio_greater_than,
     within_range,
 )
+from cura_frame.cli import (
+    available_bundles,
+    evaluate_candidate,
+    load_candidate_from_json,
+    serialize_result,
+)
 
 
 # -----------------------------
@@ -181,6 +187,52 @@ class TestBasicEvaluation:
         assert not result.has_critical_violations()  # No CRITICAL violations
         assert len(result.violations) == 1
         assert result.violations[0].constraint == "beta1_selectivity"
+
+
+class TestCliHelpers:
+    """Tests for CLI helper utilities."""
+
+    def test_available_bundles_includes_core(self):
+        bundles = available_bundles()
+        assert "core-safety" in bundles
+
+    def test_evaluate_candidate_accepts_valid_candidate(self, safe_candidate):
+        result = evaluate_candidate(
+            candidate=safe_candidate,
+            bundle_name="core-safety",
+            population=None,
+            strict=True,
+        )
+
+        assert result.status == EvaluationStatus.ACCEPTED
+
+    def test_load_candidate_from_json_supports_object_shape(self, tmp_path):
+        candidate_json = tmp_path / "candidate.json"
+        candidate_json.write_text(
+            '{"name": "sample", "properties": {"logP": 3.1}}',
+            encoding="utf-8",
+        )
+
+        candidate = load_candidate_from_json(candidate_json)
+
+        assert candidate.name == "sample"
+        assert candidate.properties == {"logP": 3.1}
+
+    def test_serialize_result_includes_status_and_violations(self, framework):
+        candidate = Candidate(
+            name="low_selectivity",
+            properties={
+                "logP": 3.0,
+                "hERG_IC50": 20.0,
+                "beta1_selectivity": 20.0,
+            },
+        )
+
+        result = framework.evaluate(candidate)
+        payload = serialize_result(result)
+
+        assert payload["status"] == EvaluationStatus.REJECTED.value
+        assert payload["violations"]
 
     def test_rejects_candidate_with_multiple_violations(
         self,

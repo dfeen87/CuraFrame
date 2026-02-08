@@ -192,6 +192,40 @@ else:
         print(f"  - {violation.constraint}: {violation.rationale}")
 ```
 
+### Using the Command Line (CLI)
+
+For fast, reproducible checks in scripts or CI, evaluate a JSON candidate
+against a named constraint bundle:
+
+```bash
+python -m cura_frame.cli candidate.json --bundle core-safety
+```
+
+Candidate JSON can be either a flat map of properties or a structured object:
+
+```json
+{
+  "name": "example_candidate",
+  "properties": {
+    "logP": 3.2,
+    "hERG_IC50": 12.0,
+    "beta1_selectivity": 140.0
+  }
+}
+```
+
+List available bundles:
+
+```bash
+python -m cura_frame.cli --list-bundles
+```
+
+Emit machine-readable output:
+
+```bash
+python -m cura_frame.cli candidate.json --bundle cns --format json
+```
+
 ### Using the Streamlit Console
 
 Launch the interactive console:

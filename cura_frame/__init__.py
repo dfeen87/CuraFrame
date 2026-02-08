@@ -21,6 +21,7 @@ from .core import (
     Severity,
     Violation,
 )
+from .cli import main as cli_main
 
 # Constraint library (explicit, opt-in usage)
 from .constraints_library import (
@@ -59,6 +60,7 @@ __all__ = [
     "EvaluationStatus",
     "Severity",
     "Violation",
+    "cli_main",
 
     # Constraint library (explicit exports)
     "logP_max",
