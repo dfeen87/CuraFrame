@@ -10,7 +10,6 @@ from dataclasses import dataclass, field
 from typing import Callable, Any, Dict, List, Optional, Protocol, Union
 from enum import Enum
 import logging
-from abc import ABC, abstractmethod
 
 
 logger = logging.getLogger(__name__)
@@ -23,7 +22,7 @@ logger = logging.getLogger(__name__)
 class EvaluationStatus(Enum):
     """
     Outcome of constraint evaluation.
-    
+
     ACCEPTED: All constraints satisfied.
     REJECTED: One or more critical constraints violated.
     INDETERMINATE: Insufficient data to evaluate.
@@ -36,7 +35,7 @@ class EvaluationStatus(Enum):
 class Severity(Enum):
     """
     Violation severity levels.
-    
+
     CRITICAL: Immediate rejection, non-negotiable.
     SEVERE: Likely rejection unless exceptional justification.
     WARNING: Caution advised, not grounds for rejection.
@@ -54,7 +53,7 @@ class Severity(Enum):
 class Provenance:
     """
     Tracks the source and reliability of a constraint.
-    
+
     Attributes:
         source_type: Origin of constraint (e.g., 'clinical_data', 'QSPR_model')
         confidence: Epistemic confidence [0.0, 1.0]
@@ -65,15 +64,15 @@ class Provenance:
     confidence: float
     references: List[str] = field(default_factory=list)
     last_validated: Optional[str] = None
-    
+
     def __post_init__(self):
         if not 0.0 <= self.confidence <= 1.0:
             raise ValueError(f"Confidence must be in [0,1], got {self.confidence}")
-    
+
     def is_well_established(self, threshold: float = 0.8) -> bool:
         """Conservative: high confidence AND multiple references."""
         return self.confidence >= threshold and len(self.references) >= 3
-    
+
     def requires_verification(self, threshold: float = 0.6) -> bool:
         """Flag constraints with moderate or low confidence."""
         return self.confidence < threshold
@@ -83,11 +82,11 @@ class Provenance:
 class Constraint:
     """
     Represents a single evaluative boundary.
-    
+
     Constraints are non-negotiable safety limits unless explicitly
     modified by population stratification. Each constraint carries
     provenance metadata for transparency.
-    
+
     Attributes:
         name: Unique identifier for this constraint
         threshold: The limiting value (type depends on constraint)
@@ -106,14 +105,14 @@ class Constraint:
     def evaluate(self, value: Any) -> bool:
         """
         Returns True if value satisfies constraint, False otherwise.
-        
+
         Raises:
             TypeError: If value and threshold types are incompatible
         """
         try:
             return self.comparator(value, self.threshold)
         except (TypeError, ValueError) as e:
-            logger.error(f"Constraint {self.name} evaluation failed: {e}")
+            logger.error("Constraint %s evaluation failed: %s", self.name, e)
             raise TypeError(
                 f"Cannot compare {type(value).__name__} to "
                 f"{type(self.threshold).__name__} in constraint '{self.name}'"
@@ -133,7 +132,7 @@ class Constraint:
     def apply_modifier(self, modifier: Callable[["Constraint"], Any]) -> None:
         """
         Apply population-specific adjustment to threshold.
-        
+
         Example:
             >>> elderly_modifier = lambda c: c.threshold * 1.5  # More conservative
             >>> constraint.apply_modifier(elderly_modifier)
@@ -149,7 +148,7 @@ class Constraint:
 class Violation:
     """
     Records a constraint violation with full context.
-    
+
     Attributes:
         constraint: Name of violated constraint
         observed: Actual value from candidate
@@ -164,7 +163,7 @@ class Violation:
     rationale: str
     severity: Severity
     confidence: float
-    
+
     def __str__(self) -> str:
         return (
             f"[{self.severity.value.upper()}] {self.constraint}: "
@@ -182,7 +181,7 @@ class Violation:
 class EvaluationResult:
     """
     Complete outcome of constraint evaluation.
-    
+
     Attributes:
         status: Overall outcome (ACCEPTED/REJECTED/INDETERMINATE)
         violations: List of constraint violations (if any)
@@ -201,38 +200,38 @@ class EvaluationResult:
 
     def is_rejected(self) -> bool:
         return self.status == EvaluationStatus.REJECTED
-    
+
     def is_indeterminate(self) -> bool:
         return self.status == EvaluationStatus.INDETERMINATE
-    
+
     def has_critical_violations(self) -> bool:
         return any(v.severity == Severity.CRITICAL for v in self.violations)
-    
+
     def has_warnings(self) -> bool:
         return len(self.warnings) > 0 or any(
             v.severity == Severity.WARNING for v in self.violations
         )
-    
+
     def summary(self) -> str:
         """Human-readable summary of evaluation."""
         lines = [f"Evaluation: {self.status.value.upper()}"]
-        
+
         if self.candidate_name:
             lines.append(f"Candidate: {self.candidate_name}")
-        
+
         if self.violations:
             lines.append(f"\nViolations ({len(self.violations)}):")
             for v in self.violations:
                 lines.append(f"  • {v}")
-        
+
         if self.warnings:
             lines.append(f"\nWarnings ({len(self.warnings)}):")
             for w in self.warnings:
                 lines.append(f"  • {w}")
-        
+
         if self.notes:
             lines.append(f"\nNotes: {self.notes}")
-        
+
         return "\n".join(lines)
 
 
@@ -250,11 +249,11 @@ class CandidateProtocol(Protocol):
 class Candidate:
     """
     Represents a hypothetical design concept.
-    
+
     All property values are assumed to be predicted, estimated,
     or otherwise uncertain. CuraFrame evaluates whether these
     values satisfy constraints—it does NOT generate or optimize them.
-    
+
     Attributes:
         name: Human-readable identifier
         properties: Dictionary of property_name -> value
@@ -269,16 +268,16 @@ class Candidate:
     def get(self, property_name: str, default: Any = None) -> Any:
         """
         Retrieve a property value.
-        
+
         Returns None if property is missing (caller must handle).
         Optionally returns a default value if provided.
         """
         return self.properties.get(property_name, default)
-    
+
     def has(self, property_name: str) -> bool:
         """Check if property exists."""
         return property_name in self.properties
-    
+
     def get_with_uncertainty(self, property_name: str) -> tuple:
         """
         Returns (nominal_value, lower_bound, upper_bound).
@@ -287,13 +286,13 @@ class Candidate:
         value = self.get(property_name)
         if value is None:
             raise KeyError(f"Property '{property_name}' not found")
-        
+
         if self.uncertainty and property_name in self.uncertainty:
             lower, upper = self.uncertainty[property_name]
             return (value, lower, upper)
-        
+
         return (value, value, value)
-    
+
     def __str__(self) -> str:
         props = ", ".join(f"{k}={v}" for k, v in self.properties.items())
         return f"Candidate({self.name}: {props})"
@@ -306,11 +305,11 @@ class Candidate:
 class PopulationStratification:
     """
     Applies conservative constraint modifiers for patient subgroups.
-    
+
     Different populations (elderly, pediatric, comorbid conditions)
     may require tighter safety margins. This class manages those
     adjustments in a transparent, traceable way.
-    
+
     Example:
         >>> strat = PopulationStratification()
         >>> strat.add_population("elderly", {
@@ -323,19 +322,19 @@ class PopulationStratification:
         self.populations: Dict[str, Dict[str, Callable[[Constraint], Any]]] = {}
 
     def add_population(
-        self, 
-        name: str, 
+        self,
+        name: str,
         modifiers: Dict[str, Callable[[Constraint], Any]]
     ) -> None:
         """
         Register a population with constraint modifiers.
-        
+
         Args:
             name: Population identifier (e.g., "elderly", "asthmatic")
             modifiers: Map of constraint_name -> modifier_function
         """
         if name in self.populations:
-            logger.warning(f"Overwriting existing population '{name}'")
+            logger.warning("Overwriting existing population '%s'", name)
         self.populations[name] = modifiers
 
     def get_populations(self) -> List[str]:
@@ -343,28 +342,28 @@ class PopulationStratification:
         return list(self.populations.keys())
 
     def apply(
-        self, 
-        population: Optional[str], 
+        self,
+        population: Optional[str],
         constraints: List[Constraint]
     ) -> List[Constraint]:
         """
         Apply population-specific modifiers to constraints.
-        
+
         Args:
             population: Population name (None = no modifications)
             constraints: Base constraints to modify
-        
+
         Returns:
             New list of constraints with modifiers applied.
             Original constraints are unchanged (copies are modified).
         """
         if population is None:
             return constraints
-        
+
         if population not in self.populations:
             logger.warning(
-                f"Unknown population '{population}'. "
-                f"Available: {self.get_populations()}"
+                "Unknown population '%s'. Available: %s",
+                population, self.get_populations()
             )
             return constraints
 
@@ -376,8 +375,8 @@ class PopulationStratification:
             if constraint.name in modifiers:
                 c.apply_modifier(modifiers[constraint.name])
                 logger.debug(
-                    f"Applied {population} modifier to {constraint.name}: "
-                    f"{constraint.threshold} -> {c.threshold}"
+                    "Applied %s modifier to %s: %s -> %s",
+                    population, constraint.name, constraint.threshold, c.threshold
                 )
             adjusted.append(c)
 
@@ -391,20 +390,20 @@ class PopulationStratification:
 class CuraFrame:
     """
     Core constraint-reasoning engine for therapeutic design.
-    
+
     CuraFrame evaluates whether hypothetical candidates satisfy
     safety and design constraints. It does NOT:
     - Generate molecules
     - Optimize properties
     - Make clinical decisions
     - Predict outcomes
-    
+
     It DOES:
     - Evaluate constraint satisfaction
     - Track provenance and uncertainty
     - Apply population-specific safety margins
     - Reject designs that violate safety limits
-    
+
     Philosophy:
         Safety constraints precede creativity.
         "This cannot be done safely" is a valid and important answer.
@@ -417,7 +416,7 @@ class CuraFrame:
     ):
         """
         Initialize CuraFrame with safety constraints.
-        
+
         Args:
             safety_constraints: List of non-negotiable safety limits
             name: Optional name for this framework instance (for logging)
@@ -428,10 +427,10 @@ class CuraFrame:
         self.evaluation_history: List[EvaluationResult] = []
         self._constraints_by_name: Dict[str, Constraint] = {}
         self._population_constraints_cache: Dict[Optional[str], List[Constraint]] = {}
-        
+
         # Validate constraints at initialization
         self._validate_constraints()
-    
+
     def _validate_constraints(self) -> None:
         """Ensure all constraints are properly configured."""
         seen_names = set()
@@ -441,14 +440,14 @@ class CuraFrame:
                 raise ValueError(f"Duplicate constraint name: {constraint.name}")
             seen_names.add(constraint.name)
             constraints_by_name[constraint.name] = constraint
-            
+
             # Warn about low-confidence critical constraints
             if constraint.severity == Severity.CRITICAL:
                 if constraint.provenance and constraint.provenance.requires_verification():
                     logger.warning(
-                        f"CRITICAL constraint '{constraint.name}' has "
-                        f"low confidence ({constraint.provenance.confidence:.2f}). "
-                        "Consider additional validation."
+                        "CRITICAL constraint '%s' has low confidence (%.2f). "
+                        "Consider additional validation.",
+                        constraint.name, constraint.provenance.confidence
                     )
         self._constraints_by_name = constraints_by_name
         self._population_constraints_cache.clear()
@@ -460,7 +459,7 @@ class CuraFrame:
     ) -> None:
         """
         Register a patient population with constraint modifiers.
-        
+
         Args:
             name: Population identifier
             modifiers: Constraint adjustments for this population
@@ -490,22 +489,22 @@ class CuraFrame:
     ) -> EvaluationResult:
         """
         Evaluate a candidate against all applicable constraints.
-        
+
         Args:
             candidate: Hypothetical design to evaluate
             population: Patient population context (None = general)
             strict: If True, missing properties -> INDETERMINATE.
                    If False, missing properties are skipped with warning.
-        
+
         Returns:
             EvaluationResult with status and any violations.
-        
+
         Philosophy:
             - All safety constraints must be satisfied for ACCEPTED.
             - Any critical violation results in REJECTED.
             - Missing data results in INDETERMINATE (unless strict=False).
         """
-        
+
         # Apply population-specific constraint adjustments
         constraints = self._get_constraints_for_population(population)
 
@@ -540,7 +539,7 @@ class CuraFrame:
             try:
                 satisfied = constraint.evaluate(value)
             except TypeError as e:
-                logger.error(f"Constraint evaluation failed: {e}")
+                logger.error("Constraint evaluation failed: %s", e)
                 result = EvaluationResult(
                     status=EvaluationStatus.INDETERMINATE,
                     notes=f"Constraint evaluation error: {e}",
@@ -553,11 +552,11 @@ class CuraFrame:
             # Record violation if constraint not satisfied
             if not satisfied:
                 confidence = (
-                    constraint.provenance.confidence 
-                    if constraint.provenance 
+                    constraint.provenance.confidence
+                    if constraint.provenance
                     else 1.0
                 )
-                
+
                 violations.append(
                     Violation(
                         constraint=constraint.name,
@@ -568,7 +567,7 @@ class CuraFrame:
                         confidence=confidence
                     )
                 )
-                
+
                 # Flag low-confidence violations
                 if constraint.provenance and not constraint.provenance.is_well_established():
                     warnings.append(
@@ -622,25 +621,25 @@ class CuraFrame:
     def get_history(self, candidate_name: Optional[str] = None) -> List[EvaluationResult]:
         """
         Retrieve evaluation history.
-        
+
         Args:
             candidate_name: Filter by candidate name (None = all results)
-        
+
         Returns:
             List of EvaluationResults.
         """
         if candidate_name is None:
             return self.evaluation_history
-        
+
         return [
-            r for r in self.evaluation_history 
+            r for r in self.evaluation_history
             if r.candidate_name == candidate_name
         ]
 
     def export_constraints(self) -> Dict[str, Any]:
         """
         Export constraints as machine-readable dictionary.
-        
+
         Useful for documentation, version control, and reproducibility.
         """
         return {
