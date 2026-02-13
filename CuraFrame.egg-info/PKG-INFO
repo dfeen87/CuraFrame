@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: CuraFrame
+Version: 0.1.0
+Summary: Constraint-driven therapeutic design reasoning framework.
+Requires-Python: >=3.9
+License-File: LICENSE
+Dynamic: license-file
+Dynamic: requires-python
+Dynamic: summary
