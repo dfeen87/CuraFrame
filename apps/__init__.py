@@ -21,17 +21,17 @@ This package is strictly a presentation layer.
 
 Usage:
     Run the console from the command line:
-    
+
         streamlit run apps/console_streamlit/app.py
-    
+
     Or from the package root:
-    
+
         python -m streamlit run apps/console_streamlit/app.py
 
 Philosophy:
     The console makes constraint reasoning *visible* and *auditable*.
     It does not make reasoning *automatic* or *autonomous*.
-    
+
     Human judgment remains central.
 """
 

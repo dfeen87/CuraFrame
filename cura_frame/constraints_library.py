@@ -27,7 +27,6 @@ from .comparators import (
     greater_than_or_equal,
     within_range,
     ratio_greater_than,
-    selectivity_satisfied,
 )
 
 
@@ -723,16 +722,16 @@ def cardiAnx_dual_domain_constraints() -> List[Constraint]:
         molecular_weight_range(min_mw=450.0, max_mw=520.0),
         hydrogen_bond_donors_max(max_hbd=2),
         hydrogen_bond_acceptors_max(max_hba=7),
-        
+
         # Cardiac safety
         hERG_ic50_min(min_ic50_uM=10.0),
         beta1_over_beta2_selectivity_min(min_selectivity=100.0),
-        
+
         # Target profile
         serotonin_5ht1a_affinity_range(min_Kd_nM=5.0, max_Kd_nM=20.0),
         off_target_5ht2a_avoidance(max_affinity_nM=500.0),
         dopamine_d2_avoidance(max_affinity_nM=1000.0),
-        
+
         # Pharmacokinetics
         plasma_half_life_range(min_t_half_hours=8.0, max_t_half_hours=16.0),
     ]

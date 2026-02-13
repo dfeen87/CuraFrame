@@ -25,7 +25,7 @@ import math
 def less_than(value: Any, threshold: Any) -> bool:
     """
     value < threshold
-    
+
     Raises:
         TypeError: If value and threshold cannot be compared
     """
@@ -35,7 +35,7 @@ def less_than(value: Any, threshold: Any) -> bool:
 def less_than_or_equal(value: Any, threshold: Any) -> bool:
     """
     value ≤ threshold
-    
+
     Raises:
         TypeError: If value and threshold cannot be compared
     """
@@ -45,7 +45,7 @@ def less_than_or_equal(value: Any, threshold: Any) -> bool:
 def greater_than(value: Any, threshold: Any) -> bool:
     """
     value > threshold
-    
+
     Raises:
         TypeError: If value and threshold cannot be compared
     """
@@ -55,7 +55,7 @@ def greater_than(value: Any, threshold: Any) -> bool:
 def greater_than_or_equal(value: Any, threshold: Any) -> bool:
     """
     value ≥ threshold
-    
+
     Raises:
         TypeError: If value and threshold cannot be compared
     """
@@ -65,10 +65,10 @@ def greater_than_or_equal(value: Any, threshold: Any) -> bool:
 def equal_to(value: Any, threshold: Any) -> bool:
     """
     value == threshold
-    
+
     Note: Uses Python's default equality semantics.
     For floating point, consider approximately_equal_to instead.
-    
+
     Raises:
         TypeError: If value and threshold cannot be compared
     """
@@ -78,7 +78,7 @@ def equal_to(value: Any, threshold: Any) -> bool:
 def not_equal_to(value: Any, threshold: Any) -> bool:
     """
     value ≠ threshold
-    
+
     Raises:
         TypeError: If value and threshold cannot be compared
     """
@@ -95,14 +95,14 @@ def approximately_equal_to(
 ) -> bool:
     """
     Check approximate equality within tolerance.
-    
+
     Args:
         value: Value to test
         threshold: Either target_value or (target_value, epsilon)
-    
+
     Returns:
         True if |value - target| < epsilon
-    
+
     Examples:
         >>> approximately_equal_to(1.0001, (1.0, 0.001))
         True
@@ -114,7 +114,7 @@ def approximately_equal_to(
     else:
         target = threshold
         epsilon = 1e-9  # Default tolerance
-    
+
     return abs(value - target) < epsilon
 
 
@@ -124,11 +124,11 @@ def significantly_greater_than(
 ) -> bool:
     """
     Check if value > threshold + epsilon (avoids floating point edge cases).
-    
+
     Args:
         value: Value to test
         threshold: Either limit or (limit, epsilon)
-    
+
     Returns:
         True if value significantly exceeds threshold
     """
@@ -137,7 +137,7 @@ def significantly_greater_than(
     else:
         limit = threshold
         epsilon = 1e-9
-    
+
     return value > (limit + epsilon)
 
 
@@ -147,11 +147,11 @@ def significantly_less_than(
 ) -> bool:
     """
     Check if value < threshold - epsilon (avoids floating point edge cases).
-    
+
     Args:
         value: Value to test
         threshold: Either limit or (limit, epsilon)
-    
+
     Returns:
         True if value significantly below threshold
     """
@@ -160,7 +160,7 @@ def significantly_less_than(
     else:
         limit = threshold
         epsilon = 1e-9
-    
+
     return value < (limit - epsilon)
 
 
@@ -183,10 +183,10 @@ def within_range(
 
     Returns:
         True if value lies within bounds
-    
+
     Raises:
         ValueError: If bounds are invalid (min > max)
-    
+
     Examples:
         >>> within_range(5.0, (1.0, 10.0))
         True
@@ -194,13 +194,13 @@ def within_range(
         False
     """
     lower, upper = bounds
-    
+
     if lower > upper:
         raise ValueError(f"Invalid bounds: lower ({lower}) > upper ({upper})")
-    
+
     if math.isnan(value):
         return False
-    
+
     if inclusive:
         return lower <= value <= upper
     return lower < value < upper
@@ -213,17 +213,17 @@ def outside_range(
 ) -> bool:
     """
     Check whether value lies outside [min, max] or (min, max).
-    
+
     Inverse of within_range.
-    
+
     Args:
         value: Numeric value to evaluate
         bounds: (min_value, max_value)
         inclusive: Whether bounds are inclusive (default: True)
-    
+
     Returns:
         True if value lies outside bounds
-    
+
     Examples:
         >>> outside_range(15.0, (1.0, 10.0))
         True
@@ -241,16 +241,16 @@ def within_tolerance(
 ) -> bool:
     """
     Check if value is within tolerance of target.
-    
+
     Args:
         value: Value to test
         target: Target value
         tolerance: Absolute or relative tolerance
         relative: If True, tolerance is relative (percentage)
-    
+
     Returns:
         True if value within tolerance of target
-    
+
     Examples:
         >>> within_tolerance(10.5, 10.0, 1.0)  # Absolute
         True
@@ -261,7 +261,7 @@ def within_tolerance(
         actual_tolerance = abs(target * tolerance)
     else:
         actual_tolerance = tolerance
-    
+
     return abs(value - target) <= actual_tolerance
 
 
@@ -282,12 +282,12 @@ def ratio_greater_than(
 
     Returns:
         True if ratio > threshold
-    
+
     Notes:
         Epsilon prevents numerical instability near threshold.
         For selectivity constraints like "100x selective for β₁ over β₂",
         pass the calculated ratio and required minimum.
-    
+
     Examples:
         >>> ratio_greater_than(150.0, 100.0)  # 150x selectivity > 100x required
         True
@@ -299,10 +299,10 @@ def ratio_greater_than(
     else:
         required_ratio = threshold
         epsilon = 0.0
-    
+
     if math.isnan(ratio) or math.isinf(ratio):
         return False
-    
+
     return ratio > (required_ratio + epsilon)
 
 
@@ -312,14 +312,14 @@ def ratio_less_than(
 ) -> bool:
     """
     Check if a ratio is below a maximum allowed threshold.
-    
+
     Args:
         ratio: Observed ratio value
         threshold: Either max_ratio or (max_ratio, epsilon)
-    
+
     Returns:
         True if ratio < threshold
-    
+
     Examples:
         >>> ratio_less_than(0.5, 1.0)  # Ratio below max
         True
@@ -329,10 +329,10 @@ def ratio_less_than(
     else:
         max_ratio = threshold
         epsilon = 0.0
-    
+
     if math.isnan(ratio) or math.isinf(ratio):
         return False
-    
+
     return ratio < (max_ratio - epsilon)
 
 
@@ -343,19 +343,19 @@ def selectivity_satisfied(
 ) -> bool:
     """
     Check if off-target/on-target selectivity meets minimum requirement.
-    
+
     Args:
         Kd_ontarget: Dissociation constant at desired target (lower = tighter)
         Kd_offtarget: Dissociation constant at off-target (higher = weaker)
         min_selectivity: Minimum required selectivity ratio
-    
+
     Returns:
         True if Kd_offtarget / Kd_ontarget >= min_selectivity
-    
+
     Notes:
         For pharmacology: higher Kd = weaker binding.
         A 100x selective drug has Kd_offtarget = 100 × Kd_ontarget.
-    
+
     Examples:
         >>> selectivity_satisfied(1e-9, 100e-9, 100.0)  # 100x selective
         True
@@ -364,7 +364,7 @@ def selectivity_satisfied(
     """
     if Kd_ontarget <= 0 or Kd_offtarget <= 0:
         raise ValueError("Kd values must be positive")
-    
+
     actual_selectivity = Kd_offtarget / Kd_ontarget
     return actual_selectivity >= min_selectivity
 
@@ -379,7 +379,7 @@ def conservative_upper_bound(
 ) -> bool:
     """
     Compare using the worst-case (upper) bound.
-    
+
     Use this when the constraint represents a MAXIMUM allowed value,
     and you want to ensure even the upper uncertainty bound satisfies it.
 
@@ -389,11 +389,11 @@ def conservative_upper_bound(
 
     Returns:
         True if upper_bound ≤ threshold
-    
+
     Philosophy:
         Conservative = assume the worst case.
         For safety-critical constraints, this prevents optimistic assumptions.
-    
+
     Examples:
         >>> conservative_upper_bound((10.0, 9.0, 11.0), 12.0)  # Upper = 11 < 12
         True
@@ -401,10 +401,10 @@ def conservative_upper_bound(
         False
     """
     _, _, upper = value_with_uncertainty
-    
+
     if math.isnan(upper) or math.isinf(upper):
         return False
-    
+
     return upper <= threshold
 
 
@@ -414,21 +414,21 @@ def conservative_lower_bound(
 ) -> bool:
     """
     Compare using the worst-case (lower) bound.
-    
+
     Use this when the constraint represents a MINIMUM required value,
     and you want to ensure even the lower uncertainty bound satisfies it.
 
     Args:
         value_with_uncertainty: (nominal, lower_bound, upper_bound)
         threshold: Minimum required value
-    
+
     Returns:
         True if lower_bound ≥ threshold
-    
+
     Philosophy:
         Conservative = assume the worst case.
         For efficacy constraints, this prevents optimistic assumptions.
-    
+
     Examples:
         >>> conservative_lower_bound((10.0, 9.0, 11.0), 8.0)  # Lower = 9 > 8
         True
@@ -436,10 +436,10 @@ def conservative_lower_bound(
         False
     """
     _, lower, _ = value_with_uncertainty
-    
+
     if math.isnan(lower) or math.isinf(lower):
         return False
-    
+
     return lower >= threshold
 
 
@@ -450,18 +450,18 @@ def optimistic_nominal(
 ) -> bool:
     """
     Compare using the nominal (expected) value, ignoring uncertainty.
-    
+
     Use with caution: only appropriate when uncertainty is well-characterized
     and downstream validation will catch edge cases.
-    
+
     Args:
         value_with_uncertainty: (nominal, lower_bound, upper_bound)
         threshold: Threshold value
         comparison: Comparison function (e.g., greater_than)
-    
+
     Returns:
         True if comparison(nominal, threshold)
-    
+
     Warning:
         This is NOT conservative. Use conservative_upper_bound or
         conservative_lower_bound for safety-critical constraints.
@@ -477,32 +477,32 @@ def probabilistic_satisfaction(
 ) -> bool:
     """
     Check if constraint is satisfied with specified confidence.
-    
+
     Assumes uniform distribution over [lower, upper].
     For normal distributions, use a specialized comparator.
-    
+
     Args:
         value_with_uncertainty: (nominal, lower_bound, upper_bound)
         threshold: Maximum allowed value
         confidence_level: Required probability of satisfaction (0-1)
-    
+
     Returns:
         True if P(value ≤ threshold) ≥ confidence_level
-    
+
     Examples:
         >>> # Value uniform in [8, 12], threshold = 10
         >>> # P(value ≤ 10) = 0.5, so fails at 95% confidence
         >>> probabilistic_satisfaction((10.0, 8.0, 12.0), 10.0, 0.95)
         False
     """
-    nominal, lower, upper = value_with_uncertainty
-    
+    _, lower, upper = value_with_uncertainty
+
     if upper <= threshold:
         return True  # 100% probability
-    
+
     if lower > threshold:
         return False  # 0% probability
-    
+
     # Uniform distribution: fraction below threshold
     prob_satisfied = (threshold - lower) / (upper - lower)
     return prob_satisfied >= confidence_level
@@ -515,24 +515,24 @@ def probabilistic_satisfaction(
 def all_of(*comparators: Callable[[Any, Any], bool]) -> Callable[[Any, Any], bool]:
     """
     Combine multiple comparator functions using logical AND.
-    
+
     Args:
         *comparators: Variable number of comparator functions
-    
+
     Returns:
         A comparator that returns True only if ALL comparators pass.
-    
+
     Examples:
         >>> combined = all_of(greater_than, less_than_or_equal)
         >>> combined(5, (4, 10))  # 4 < 5 <= 10
         True
-    
+
     Notes:
         Short-circuits on first False (efficient for expensive checks).
     """
     def _combined(value: Any, threshold: Any) -> bool:
         return all(comp(value, threshold) for comp in comparators)
-    
+
     _combined.__name__ = f"all_of({', '.join(c.__name__ for c in comparators)})"
     return _combined
 
@@ -540,24 +540,24 @@ def all_of(*comparators: Callable[[Any, Any], bool]) -> Callable[[Any, Any], boo
 def any_of(*comparators: Callable[[Any, Any], bool]) -> Callable[[Any, Any], bool]:
     """
     Combine multiple comparator functions using logical OR.
-    
+
     Args:
         *comparators: Variable number of comparator functions
-    
+
     Returns:
         A comparator that returns True if ANY comparator passes.
-    
+
     Examples:
         >>> combined = any_of(less_than, greater_than)
         >>> combined(15, (10, 20))  # Outside [10, 20]
         True
-    
+
     Notes:
         Short-circuits on first True.
     """
     def _combined(value: Any, threshold: Any) -> bool:
         return any(comp(value, threshold) for comp in comparators)
-    
+
     _combined.__name__ = f"any_of({', '.join(c.__name__ for c in comparators)})"
     return _combined
 
@@ -565,13 +565,13 @@ def any_of(*comparators: Callable[[Any, Any], bool]) -> Callable[[Any, Any], boo
 def none_of(*comparators: Callable[[Any, Any], bool]) -> Callable[[Any, Any], bool]:
     """
     Combine multiple comparator functions using logical NOR.
-    
+
     Args:
         *comparators: Variable number of comparator functions
-    
+
     Returns:
         A comparator that returns True only if NO comparators pass.
-    
+
     Examples:
         >>> combined = none_of(less_than, greater_than)
         >>> combined(15, (10, 20))  # Within [10, 20], so neither < 10 nor > 20
@@ -579,7 +579,7 @@ def none_of(*comparators: Callable[[Any, Any], bool]) -> Callable[[Any, Any], bo
     """
     def _combined(value: Any, threshold: Any) -> bool:
         return not any(comp(value, threshold) for comp in comparators)
-    
+
     _combined.__name__ = f"none_of({', '.join(c.__name__ for c in comparators)})"
     return _combined
 
@@ -594,14 +594,14 @@ def null_safe(
 ) -> Callable[[Any, Any], bool]:
     """
     Wrap a comparator to handle None values gracefully.
-    
+
     Args:
         comparator: Base comparator function
         default: Return value when value is None
-    
+
     Returns:
         Null-safe version of comparator
-    
+
     Examples:
         >>> safe_gt = null_safe(greater_than, default=False)
         >>> safe_gt(None, 10)
@@ -613,7 +613,7 @@ def null_safe(
         if value is None:
             return default
         return comparator(value, threshold)
-    
+
     _null_safe.__name__ = f"null_safe({comparator.__name__})"
     return _null_safe
 
