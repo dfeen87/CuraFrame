@@ -29,7 +29,6 @@ from cura_frame.comparators import (
     less_than_or_equal,
     greater_than_or_equal,
     ratio_greater_than,
-    within_range,
 )
 from cura_frame.cli import (
     available_bundles,
@@ -47,7 +46,7 @@ from cura_frame.cli import (
 def basic_constraints() -> List[Constraint]:
     """
     Minimal, safety-critical constraint set inspired by CardiAnx-1.
-    
+
     Represents:
     - BBB penetration limit (logP)
     - Cardiac safety (hERG)
@@ -133,7 +132,7 @@ def unsafe_candidate() -> Candidate:
 
 class TestBasicEvaluation:
     """Tests for fundamental constraint evaluation logic."""
-    
+
     def test_accepts_candidate_when_all_constraints_satisfied(
         self,
         framework: CuraFrame,
@@ -163,7 +162,7 @@ class TestBasicEvaluation:
         assert result.status == EvaluationStatus.REJECTED
         assert result.has_critical_violations()
         assert len(result.violations) == 1
-        
+
         violation = result.violations[0]
         assert violation.constraint == "logP"
         assert violation.observed == 6.0
@@ -244,7 +243,7 @@ class TestCliHelpers:
 
         assert result.status == EvaluationStatus.REJECTED
         assert len(result.violations) == 3
-        
+
         violated_constraints = {v.constraint for v in result.violations}
         assert violated_constraints == {"logP", "hERG_IC50", "beta1_selectivity"}
 
@@ -276,7 +275,7 @@ class TestCliHelpers:
 
 class TestMissingData:
     """Tests for handling incomplete candidate data."""
-    
+
     def test_indeterminate_when_required_property_missing_strict_mode(
         self,
         framework: CuraFrame
@@ -355,7 +354,7 @@ class TestMissingData:
 
 class TestPopulationStratification:
     """Tests for population-specific constraint adjustments."""
-    
+
     def test_population_stratification_tightens_constraints(
         self,
         framework: CuraFrame
@@ -444,7 +443,7 @@ class TestPopulationStratification:
 
 class TestProvenanceTracking:
     """Tests for constraint source tracking and confidence."""
-    
+
     def test_violation_includes_confidence(self, framework: CuraFrame):
         """Violations carry epistemic confidence from constraint provenance."""
         candidate = Candidate(
@@ -478,7 +477,7 @@ class TestProvenanceTracking:
                 references=[]
             )
         )
-        
+
         constraints = basic_constraints + [low_confidence]
         framework = CuraFrame(constraints)
 
@@ -509,11 +508,11 @@ class TestProvenanceTracking:
 
         assert "constraints" in exported
         assert len(exported["constraints"]) == 3
-        
+
         logP_constraint = next(
             c for c in exported["constraints"] if c["name"] == "logP"
         )
-        
+
         assert logP_constraint["provenance"]["source"] == "empirical_guideline"
         assert logP_constraint["provenance"]["confidence"] == 0.9
         assert "doi:10.x/logp-guideline" in logP_constraint["provenance"]["references"]
@@ -525,7 +524,7 @@ class TestProvenanceTracking:
 
 class TestAuditability:
     """Tests for evaluation history and reproducibility."""
-    
+
     def test_evaluation_history_is_recorded(
         self,
         framework: CuraFrame,
@@ -588,7 +587,7 @@ class TestAuditability:
 
 class TestResultSummary:
     """Tests for human-readable result formatting."""
-    
+
     def test_summary_includes_violations(self, framework: CuraFrame):
         """Summary method produces readable violation report."""
         candidate = Candidate(
@@ -642,7 +641,7 @@ class TestResultSummary:
 
 class TestEdgeCases:
     """Tests for unusual inputs and error conditions."""
-    
+
     def test_duplicate_constraint_names_raise_error(self, basic_constraints):
         """Cannot initialize with duplicate constraint names."""
         duplicate = Constraint(
@@ -652,7 +651,7 @@ class TestEdgeCases:
             rationale="Duplicate constraint",
             severity=Severity.CRITICAL
         )
-        
+
         with pytest.raises(ValueError, match="Duplicate constraint name"):
             CuraFrame(basic_constraints + [duplicate])
 
@@ -685,12 +684,12 @@ class TestEdgeCases:
             severity=Severity.CRITICAL
             # No provenance
         )
-        
+
         framework = CuraFrame([constraint])
         candidate = Candidate("test", {"simple": 5.0})
-        
+
         result = framework.evaluate(candidate)
-        
+
         assert result.status == EvaluationStatus.REJECTED
         assert result.violations[0].confidence == 1.0  # Default
 
@@ -724,7 +723,7 @@ class TestEdgeCases:
 
 class TestConstraintIntrospection:
     """Tests for querying framework configuration."""
-    
+
     def test_get_constraint_by_name(self, framework: CuraFrame):
         """Can retrieve constraint by name."""
         constraint = framework.get_constraint("logP")

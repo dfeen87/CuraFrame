@@ -13,7 +13,7 @@ if __name__ == "__main__":
     except ImportError:
         print("Error: streamlit not installed. Run: pip install streamlit")
         sys.exit(1)
-    
+
     app_path = Path(__file__).parent / "app.py"
     sys.argv = ["streamlit", "run", str(app_path), *sys.argv[1:]]
     sys.exit(stcli.main())
