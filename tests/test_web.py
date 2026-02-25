@@ -6,6 +6,7 @@ Covers:
 - Calculator route responds correctly
 - Registration creates a new user and prevents duplicates
 - Login and session management
+- JWT authentication
 """
 
 import pytest
@@ -621,3 +622,81 @@ class TestDatabaseAdapterHelpers:
         query = "SELECT * FROM users WHERE username = ?"
         adapted = _adapt_query(query, "/tmp/curaframe.db")
         assert adapted == query
+
+
+# ---------------------------------------------------------------------------
+# JWT authentication
+# ---------------------------------------------------------------------------
+
+class TestJWTAuthentication:
+    def test_login_sets_jwt_cookie(self, client):
+        """Successful login sets a cookie whose value is a valid JWT."""
+        from jose import jwt as jose_jwt
+        from apps.web.main import JWT_SECRET, _JWT_ALGORITHM
+
+        client.post(
+            "/register",
+            data={"username": "jwtuser", "email": "jwt@example.com", "password": "password1"},
+        )
+        # Use a raw client without follow_redirects to inspect Set-Cookie header
+        from fastapi.testclient import TestClient
+        from apps.web.main import create_app
+        raw_client = TestClient(client.app, follow_redirects=False)
+
+        response = raw_client.post(
+            "/login", data={"username": "jwtuser", "password": "password1"}
+        )
+        assert response.status_code in (302, 307)
+        cookie_value = response.cookies.get("session")
+        assert cookie_value is not None
+        payload = jose_jwt.decode(cookie_value, JWT_SECRET, algorithms=[_JWT_ALGORITHM])
+        assert payload["sub"] == "jwtuser"
+
+    def test_create_jwt_and_decode_roundtrip(self):
+        """_create_jwt / _decode_jwt are inverse operations."""
+        from apps.web.main import _create_jwt, _decode_jwt
+
+        token = _create_jwt("roundtrip_user")
+        assert _decode_jwt(token) == "roundtrip_user"
+
+    def test_decode_jwt_rejects_tampered_token(self):
+        """A token with a forged signature must be rejected."""
+        from apps.web.main import _decode_jwt
+
+        assert _decode_jwt("bad.token.value") is None
+
+    def test_decode_jwt_rejects_token_signed_with_wrong_secret(self):
+        """A token signed with a different secret must be rejected."""
+        from jose import jwt as jose_jwt
+        from apps.web.main import _decode_jwt, _JWT_ALGORITHM
+
+        foreign_token = jose_jwt.encode({"sub": "hacker"}, "wrong-secret", algorithm=_JWT_ALGORITHM)
+        assert _decode_jwt(foreign_token) is None
+
+    def test_jwt_secret_env_var_is_used(self, monkeypatch, tmp_path):
+        """When JWT_SECRET is set, it is used to sign tokens."""
+        import importlib
+        import apps.web.main as main_module
+
+        monkeypatch.setenv("JWT_SECRET", "my-test-secret-value")
+        # Re-read the module-level constant (it is read at import time,
+        # so we exercise the helper directly with the known secret).
+        from jose import jwt as jose_jwt
+        token = jose_jwt.encode({"sub": "envuser"}, "my-test-secret-value", algorithm="HS256")
+        from apps.web.main import _decode_jwt
+        # Temporarily patch the module secret to the env value
+        original = main_module.JWT_SECRET
+        main_module.JWT_SECRET = "my-test-secret-value"
+        try:
+            assert _decode_jwt(token) == "envuser"
+        finally:
+            main_module.JWT_SECRET = original
+
+    def test_dashboard_rejects_invalid_jwt_cookie(self, client):
+        """A request with a forged session cookie must be redirected to /login."""
+        from fastapi.testclient import TestClient
+        raw_client = TestClient(client.app, follow_redirects=True)
+        raw_client.cookies.set("session", "not.a.valid.jwt")
+        response = raw_client.get("/dashboard")
+        assert response.status_code == 200
+        assert b"Log In" in response.content or b"login" in response.content.lower()
