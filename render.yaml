@@ -1,3 +1,9 @@
+databases:
+  - name: curaframe-db
+    databaseName: curaframe
+    plan: free
+    postgresMajorVersion: 18
+
 services:
   - type: web
     name: curaframe-web
@@ -5,13 +11,11 @@ services:
     buildCommand: pip install -r requirements.txt && pip install -e .
     startCommand: uvicorn apps.web.main:app --host 0.0.0.0 --port $PORT
     plan: starter
-    disk:
-      name: curaframe-data
-      mountPath: /data
-      sizeGB: 1
     envVars:
-      - key: CURAFRAME_DB
-        value: /data/curaframe.db
+      - key: DATABASE_URL
+        fromDatabase:
+          name: curaframe-db
+          property: connectionString
       - key: CURAFRAME_SECURE_COOKIES
         value: "1"
 
