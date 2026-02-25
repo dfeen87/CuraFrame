@@ -228,3 +228,63 @@ class TestCalculator:
         assert b"logP" in body
         # Result should be HTML, not a JSON blob
         assert not body.strip().startswith(b"{")
+
+
+# ---------------------------------------------------------------------------
+# Logs
+# ---------------------------------------------------------------------------
+
+class TestLogs:
+    def test_logs_page_redirects_unauthenticated(self, client):
+        response = client.get("/logs")
+        assert response.status_code == 200
+        assert b"Log In" in response.content or b"login" in response.content.lower()
+
+    def test_logs_page_returns_html_when_authenticated(self, registered_client):
+        response = registered_client.get("/logs")
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+
+    def test_record_log_saves_entry_for_user(self, registered_client):
+        """POST /logs/record saves an entry and it appears in /logs."""
+        registered_client.post(
+            "/logs/record",
+            data={
+                "logP": "3.0",
+                "hERG_IC50": "20.0",
+                "beta1_selectivity": "150.0",
+                "bundle": "core-safety",
+                "status_val": "accepted",
+            },
+        )
+        response = registered_client.get("/logs")
+        assert response.status_code == 200
+        body = response.content
+        assert b"accepted" in body.lower()
+        assert b"core-safety" in body
+
+    def test_logs_are_per_user(self, app, tmp_path):
+        """Two different users each see only their own logs."""
+        client_a = TestClient(app, follow_redirects=True)
+        client_b = TestClient(app, follow_redirects=True)
+
+        # Register and log in as user A
+        client_a.post("/register", data={"username": "ua", "email": "ua@x.com", "password": "pw"})
+        client_a.post("/login", data={"username": "ua", "password": "pw"})
+
+        # Register and log in as user B
+        client_b.post("/register", data={"username": "ub", "email": "ub@x.com", "password": "pw"})
+        client_b.post("/login", data={"username": "ub", "password": "pw"})
+
+        # User A records a log
+        client_a.post(
+            "/logs/record",
+            data={
+                "logP": "1.0", "hERG_IC50": "5.0", "beta1_selectivity": "10.0",
+                "bundle": "lipinski", "status_val": "accepted",
+            },
+        )
+
+        # User B's logs should be empty
+        resp_b = client_b.get("/logs")
+        assert b"lipinski" not in resp_b.content
