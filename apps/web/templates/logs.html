@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}My Logs — CuraFrame{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom:1.5rem">📋 My Evaluation Logs</h1>
+
+<div class="card">
+  <h2 style="margin-bottom:1rem">Recorded Evaluations</h2>
+  <p style="color:#64748b;font-size:.9rem;margin-bottom:1.2rem">
+    Your personal history of saved calculator results.
+  </p>
+
+  {% if logs %}
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Timestamp</th>
+        <th>logP</th>
+        <th>hERG IC₅₀</th>
+        <th>β₁ Selectivity</th>
+        <th>Bundle</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for entry in logs %}
+      <tr>
+        <td>{{ entry.id }}</td>
+        <td style="font-size:.85rem;color:#475569">{{ entry.timestamp }}</td>
+        <td>{{ entry.logP }}</td>
+        <td>{{ entry.hERG_IC50 }}</td>
+        <td>{{ entry.beta1_selectivity }}</td>
+        <td>{{ entry.bundle }}</td>
+        <td><span class="badge badge-{{ entry.status }}">{{ entry.status }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="alert alert-info">No logs recorded yet. Run the calculator and click <strong>Record Log</strong> to save a result.</p>
+  {% endif %}
+
+  <div style="margin-top:1.2rem">
+    <a href="/calculator" class="btn btn-primary">Back to Calculator</a>
+  </div>
+</div>
+{% endblock %}

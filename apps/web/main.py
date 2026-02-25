@@ -6,6 +6,8 @@ Routes:
   GET  /dashboard   → dashboard HTML page (requires login)
   GET  /calculator  → calculator form (requires login)
   POST /calculator  → evaluate candidate properties (requires login)
+  POST /logs/record → save a calculator result to the user's log (requires login)
+  GET  /logs        → view the current user's log history (requires login)
   GET  /register    → registration form
   POST /register    → create new user account
   GET  /login       → login form
@@ -19,6 +21,7 @@ import hashlib
 import os
 import secrets
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -51,7 +54,7 @@ def _get_connection(db_path: str = DB_PATH) -> sqlite3.Connection:
 
 
 def _init_db(db_path: str = DB_PATH) -> None:
-    """Create the users table if it does not already exist."""
+    """Create the users and logs tables if they do not already exist."""
     conn = _get_connection(db_path)
     conn.execute(
         """
@@ -60,6 +63,20 @@ def _init_db(db_path: str = DB_PATH) -> None:
             username      TEXT    UNIQUE NOT NULL,
             email         TEXT    UNIQUE NOT NULL,
             password_hash TEXT           NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS logs (
+            id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            username          TEXT    NOT NULL,
+            timestamp         TEXT    NOT NULL,
+            logP              REAL,
+            hERG_IC50         REAL,
+            beta1_selectivity REAL,
+            bundle            TEXT,
+            status            TEXT
         )
         """
     )
@@ -198,6 +215,68 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
                     "beta1_selectivity": beta1_selectivity,
                 },
             )
+
+    # ---- Log recording ---------------------------------------------------
+
+    @app.post("/logs/record", response_class=HTMLResponse)
+    async def logs_record(
+        request: Request,
+        session: Optional[str] = Cookie(default=None),
+        logP: float = Form(default=0.0),
+        hERG_IC50: float = Form(default=0.0),
+        beta1_selectivity: float = Form(default=0.0),
+        bundle: str = Form(default="core-safety"),
+        status_val: str = Form(default=""),
+    ):
+        user = _current_user(session)
+        if not user:
+            return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
+
+        conn = _get_connection(resolved_db)
+        conn.execute(
+            """
+            INSERT INTO logs (username, timestamp, logP, hERG_IC50, beta1_selectivity, bundle, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user,
+                datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+                logP,
+                hERG_IC50,
+                beta1_selectivity,
+                bundle,
+                status_val,
+            ),
+        )
+        conn.commit()
+        conn.close()
+        return RedirectResponse("/logs", status_code=status.HTTP_302_FOUND)
+
+    @app.get("/logs", response_class=HTMLResponse)
+    async def logs_get(
+        request: Request,
+        session: Optional[str] = Cookie(default=None),
+    ):
+        user = _current_user(session)
+        if not user:
+            return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
+
+        conn = _get_connection(resolved_db)
+        rows = conn.execute(
+            """
+            SELECT id, timestamp, logP, hERG_IC50, beta1_selectivity, bundle, status
+            FROM logs
+            WHERE username = ?
+            ORDER BY id DESC
+            """,
+            (user,),
+        ).fetchall()
+        conn.close()
+        return templates.TemplateResponse(
+            request,
+            "logs.html",
+            {"user": user, "logs": [dict(r) for r in rows]},
+        )
 
     # ---- Register --------------------------------------------------------
 

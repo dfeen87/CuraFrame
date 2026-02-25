@@ -51,7 +51,8 @@
     <button type="submit" class="btn btn-primary" style="margin-top:.5rem">
       🔍 Evaluate
     </button>
-    <a href="/calculator" class="btn btn-secondary" style="margin-left:.5rem">Reset</a>
+    <button type="button" class="btn btn-secondary" style="margin-left:.5rem"
+            onclick="location.href='/calculator'">Reset</button>
   </form>
 </div>
 
@@ -109,6 +110,16 @@
   {% if result.notes %}
   <div class="alert alert-info" style="margin-top:1rem">ℹ️ {{ result.notes }}</div>
   {% endif %}
+
+  <form method="post" action="/logs/record" style="margin-top:1.2rem">
+    <input type="hidden" name="logP" value="{{ logP }}">
+    <input type="hidden" name="hERG_IC50" value="{{ hERG_IC50 }}">
+    <input type="hidden" name="beta1_selectivity" value="{{ beta1_selectivity }}">
+    <input type="hidden" name="bundle" value="{{ bundle }}">
+    <input type="hidden" name="status_val" value="{{ result.status.value }}">
+    <button type="submit" class="btn btn-primary">📝 Record Log</button>
+    <a href="/logs" class="btn btn-secondary" style="margin-left:.5rem">View Logs</a>
+  </form>
 </div>
 {% endif %}
 {% endblock %}
