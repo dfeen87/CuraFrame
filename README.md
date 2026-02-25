@@ -844,6 +844,7 @@ Thank you to the scientific community for establishing the knowledge base that C
 ### Contributors
 
 - **Google Jules**: Interactive dashboard, calculator interface, and deployment configuration.
+- **Google Jules**: Pipelayer domain implementation.
 
 ---
 
