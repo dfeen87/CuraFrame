@@ -18,6 +18,7 @@ Routes:
 from __future__ import annotations
 
 import hashlib
+import hmac
 import os
 import secrets
 import sqlite3
@@ -38,6 +39,17 @@ _TEMPLATE_DIR = Path(__file__).parent / "templates"
 # Database path – override via CURAFRAME_DB env variable (useful in tests)
 _DEFAULT_DB = Path(__file__).parent.parent.parent / "curaframe.db"
 DB_PATH = os.environ.get("CURAFRAME_DB", str(_DEFAULT_DB))
+
+# Set to "1"/"true"/"yes" in production (HTTPS) to mark the session cookie secure
+_SECURE_COOKIES = os.environ.get("CURAFRAME_SECURE_COOKIES", "0").lower() in (
+    "1", "true", "yes"
+)
+
+# Minimum acceptable password length for new registrations
+_MIN_PASSWORD_LENGTH = 8
+
+# PBKDF2-HMAC-SHA256 iteration count (OWASP 2023 recommendation)
+_PBKDF2_ITERATIONS = 260_000
 
 # ---------------------------------------------------------------------------
 # Database helpers
@@ -89,7 +101,33 @@ def _init_db(db_path: str = DB_PATH) -> None:
 
 
 def _hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+    """Hash a password using PBKDF2-HMAC-SHA256 with a random salt.
+
+    Returns a ``pbkdf2_sha256$<iterations>$<salt_hex>$<key_hex>`` string
+    suitable for storage in the database.
+    """
+    salt = os.urandom(16)
+    key = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), salt, _PBKDF2_ITERATIONS
+    )
+    return f"pbkdf2_sha256${_PBKDF2_ITERATIONS}${salt.hex()}${key.hex()}"
+
+
+def _verify_password(password: str, stored_hash: str) -> bool:
+    """Verify *password* against *stored_hash* in constant time."""
+    try:
+        algo, iterations_str, salt_hex, key_hex = stored_hash.split("$")
+        if algo != "pbkdf2_sha256":
+            return False
+        iterations = int(iterations_str)
+        salt = bytes.fromhex(salt_hex)
+        expected = bytes.fromhex(key_hex)
+        actual = hashlib.pbkdf2_hmac(
+            "sha256", password.encode("utf-8"), salt, iterations
+        )
+        return hmac.compare_digest(actual, expected)
+    except Exception:  # noqa: BLE001
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -167,17 +205,17 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
     async def calculator_post(
         request: Request,
         session: Optional[str] = Cookie(default=None),
-        logP: float = Form(default=0.0),
-        hERG_IC50: float = Form(default=0.0),
-        beta1_selectivity: float = Form(default=0.0),
-        molecular_weight: float = Form(default=0.0),
-        polar_surface_area: float = Form(default=0.0),
-        hydrogen_bond_donors: float = Form(default=0.0),
-        hydrogen_bond_acceptors: float = Form(default=0.0),
-        Kd_5HT1A: float = Form(default=0.0),
-        Kd_5HT2A: float = Form(default=0.0),
-        Kd_D2: float = Form(default=0.0),
-        plasma_half_life: float = Form(default=0.0),
+        logP: Optional[float] = Form(default=None),
+        hERG_IC50: Optional[float] = Form(default=None),
+        beta1_selectivity: Optional[float] = Form(default=None),
+        molecular_weight: Optional[float] = Form(default=None),
+        polar_surface_area: Optional[float] = Form(default=None),
+        hydrogen_bond_donors: Optional[float] = Form(default=None),
+        hydrogen_bond_acceptors: Optional[float] = Form(default=None),
+        Kd_5HT1A: Optional[float] = Form(default=None),
+        Kd_5HT2A: Optional[float] = Form(default=None),
+        Kd_D2: Optional[float] = Form(default=None),
+        plasma_half_life: Optional[float] = Form(default=None),
         bundle: str = Form(default="core-safety"),
     ):
         user = _current_user(session)
@@ -187,7 +225,7 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
         from cura_frame import Candidate
         from cura_frame.cli import evaluate_candidate
 
-        # Build properties dict, omitting zero-valued optional fields so that
+        # Build properties dict, omitting fields not submitted so that
         # non-strict evaluation skips constraints whose data was not provided.
         _all_props = {
             "logP": logP,
@@ -202,7 +240,7 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
             "Kd_D2": Kd_D2,
             "plasma_half_life": plasma_half_life,
         }
-        properties = {k: v for k, v in _all_props.items() if v != 0.0}
+        properties = {k: v for k, v in _all_props.items() if v is not None}
 
         try:
             candidate = Candidate(
@@ -265,17 +303,17 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
     async def logs_record(
         request: Request,
         session: Optional[str] = Cookie(default=None),
-        logP: float = Form(default=0.0),
-        hERG_IC50: float = Form(default=0.0),
-        beta1_selectivity: float = Form(default=0.0),
-        molecular_weight: float = Form(default=0.0),
-        polar_surface_area: float = Form(default=0.0),
-        hydrogen_bond_donors: float = Form(default=0.0),
-        hydrogen_bond_acceptors: float = Form(default=0.0),
-        Kd_5HT1A: float = Form(default=0.0),
-        Kd_5HT2A: float = Form(default=0.0),
-        Kd_D2: float = Form(default=0.0),
-        plasma_half_life: float = Form(default=0.0),
+        logP: Optional[float] = Form(default=None),
+        hERG_IC50: Optional[float] = Form(default=None),
+        beta1_selectivity: Optional[float] = Form(default=None),
+        molecular_weight: Optional[float] = Form(default=None),
+        polar_surface_area: Optional[float] = Form(default=None),
+        hydrogen_bond_donors: Optional[float] = Form(default=None),
+        hydrogen_bond_acceptors: Optional[float] = Form(default=None),
+        Kd_5HT1A: Optional[float] = Form(default=None),
+        Kd_5HT2A: Optional[float] = Form(default=None),
+        Kd_D2: Optional[float] = Form(default=None),
+        plasma_half_life: Optional[float] = Form(default=None),
         bundle: str = Form(default="core-safety"),
         status_val: str = Form(default=""),
     ):
@@ -365,6 +403,14 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
+        if len(password) < _MIN_PASSWORD_LENGTH:
+            return templates.TemplateResponse(
+                request,
+                "register.html",
+                {"error": f"Password must be at least {_MIN_PASSWORD_LENGTH} characters."},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
         conn = _get_connection(resolved_db)
         try:
             conn.execute(
@@ -400,12 +446,12 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
     ):
         conn = _get_connection(resolved_db)
         row = conn.execute(
-            "SELECT username FROM users WHERE username = ? AND password_hash = ?",
-            (username.strip(), _hash_password(password)),
+            "SELECT username, password_hash FROM users WHERE username = ?",
+            (username.strip(),),
         ).fetchone()
         conn.close()
 
-        if row is None:
+        if row is None or not _verify_password(password, row["password_hash"]):
             return templates.TemplateResponse(
                 request,
                 "login.html",
@@ -417,7 +463,9 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
         sessions[token] = row["username"]
 
         response = RedirectResponse("/dashboard", status_code=status.HTTP_302_FOUND)
-        response.set_cookie("session", token, httponly=True, samesite="lax")
+        response.set_cookie(
+            "session", token, httponly=True, samesite="lax", secure=_SECURE_COOKIES
+        )
         return response
 
     # ---- Logout ----------------------------------------------------------
