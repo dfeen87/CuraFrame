@@ -21,6 +21,9 @@ from .constraints_library import (
     cns_drug_constraints,
     core_safety_constraints,
     lipinski_rule_of_five,
+    oncology_constraints,
+    anti_infective_constraints,
+    metabolic_disease_constraints,
 )
 
 
@@ -30,6 +33,9 @@ BUNDLE_REGISTRY = {
     "cns": cns_drug_constraints,
     "cardiology": cardiology_oriented_constraints,
     "cardianx": cardiAnx_dual_domain_constraints,
+    "oncology": oncology_constraints,
+    "anti-infective": anti_infective_constraints,
+    "metabolic-disease": metabolic_disease_constraints,
 }
 
 

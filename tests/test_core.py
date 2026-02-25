@@ -965,3 +965,193 @@ class TestConstraintBundles:
         result = evaluate_candidate(candidate, bundle_name="cardianx", population=None, strict=True)
         assert result.status == EvaluationStatus.REJECTED
         assert any(v.constraint == "logP" for v in result.violations)
+
+    def test_oncology_accepts_safe_kinase_inhibitor(self):
+        """Oncology bundle accepts a candidate satisfying all anti-cancer constraints."""
+        candidate = Candidate(
+            name="kinase_inhibitor",
+            properties={
+                "logP": 3.5,
+                "molecular_weight": 450.0,
+                "hydrogen_bond_donors": 3,
+                "hydrogen_bond_acceptors": 8,
+                "hERG_IC50": 20.0,
+                "CYP3A4_IC50": 15.0,
+                "therapeutic_index": 5.0,
+                "protein_binding": 90.0,
+                "aqueous_solubility": 5.0,
+            },
+        )
+        result = evaluate_candidate(candidate, bundle_name="oncology", population=None, strict=True)
+        assert result.status == EvaluationStatus.ACCEPTED
+
+    def test_oncology_rejects_low_therapeutic_index(self):
+        """Oncology bundle rejects a candidate with therapeutic index below minimum."""
+        candidate = Candidate(
+            name="narrow_ti_agent",
+            properties={
+                "logP": 3.5,
+                "molecular_weight": 450.0,
+                "hydrogen_bond_donors": 3,
+                "hydrogen_bond_acceptors": 8,
+                "hERG_IC50": 20.0,
+                "CYP3A4_IC50": 15.0,
+                "therapeutic_index": 1.5,   # < 2.0 minimum
+                "protein_binding": 90.0,
+                "aqueous_solubility": 5.0,
+            },
+        )
+        result = evaluate_candidate(candidate, bundle_name="oncology", population=None, strict=True)
+        assert result.status == EvaluationStatus.REJECTED
+        assert any(v.constraint == "therapeutic_index" for v in result.violations)
+
+    def test_oncology_rejects_cyp3a4_inhibitor(self):
+        """Oncology bundle rejects a candidate with dangerous CYP3A4 inhibition."""
+        candidate = Candidate(
+            name="cyp_inhibitor",
+            properties={
+                "logP": 3.5,
+                "molecular_weight": 450.0,
+                "hydrogen_bond_donors": 3,
+                "hydrogen_bond_acceptors": 8,
+                "hERG_IC50": 20.0,
+                "CYP3A4_IC50": 2.0,         # < 10 µM — strong inhibitor
+                "therapeutic_index": 5.0,
+                "protein_binding": 90.0,
+                "aqueous_solubility": 5.0,
+            },
+        )
+        result = evaluate_candidate(candidate, bundle_name="oncology", population=None, strict=True)
+        assert result.status == EvaluationStatus.REJECTED
+        assert any(v.constraint == "CYP3A4_IC50" for v in result.violations)
+
+    def test_anti_infective_accepts_gram_negative_candidate(self):
+        """Anti-infective bundle accepts a candidate optimised for Gram-negative coverage."""
+        candidate = Candidate(
+            name="gram_negative_antibiotic",
+            properties={
+                "logP": 1.0,
+                "molecular_weight": 380.0,
+                "hydrogen_bond_donors": 4,
+                "hydrogen_bond_acceptors": 8,
+                "hERG_IC50": 20.0,
+                "CYP3A4_IC50": 30.0,
+                "protein_binding": 60.0,
+                "aqueous_solubility": 100.0,
+                "oral_bioavailability": 50.0,
+            },
+        )
+        result = evaluate_candidate(candidate, bundle_name="anti-infective", population=None, strict=True)
+        assert result.status == EvaluationStatus.ACCEPTED
+
+    def test_anti_infective_rejects_high_protein_binding(self):
+        """Anti-infective bundle rejects a candidate with excessive plasma protein binding."""
+        candidate = Candidate(
+            name="high_ppb_antibiotic",
+            properties={
+                "logP": 1.0,
+                "molecular_weight": 380.0,
+                "hydrogen_bond_donors": 4,
+                "hydrogen_bond_acceptors": 8,
+                "hERG_IC50": 20.0,
+                "CYP3A4_IC50": 30.0,
+                "protein_binding": 92.0,    # > 80% anti-infective limit
+                "aqueous_solubility": 100.0,
+                "oral_bioavailability": 50.0,
+            },
+        )
+        result = evaluate_candidate(candidate, bundle_name="anti-infective", population=None, strict=True)
+        assert result.status == EvaluationStatus.REJECTED
+        assert any(v.constraint == "protein_binding" for v in result.violations)
+
+    def test_anti_infective_rejects_high_logP(self):
+        """Anti-infective bundle rejects a lipophilic candidate unsuited for Gram-negative."""
+        candidate = Candidate(
+            name="lipophilic_antibiotic",
+            properties={
+                "logP": 4.5,              # > 3.0 anti-infective ceiling
+                "molecular_weight": 380.0,
+                "hydrogen_bond_donors": 4,
+                "hydrogen_bond_acceptors": 8,
+                "hERG_IC50": 20.0,
+                "CYP3A4_IC50": 30.0,
+                "protein_binding": 60.0,
+                "aqueous_solubility": 100.0,
+                "oral_bioavailability": 50.0,
+            },
+        )
+        result = evaluate_candidate(candidate, bundle_name="anti-infective", population=None, strict=True)
+        assert result.status == EvaluationStatus.REJECTED
+        assert any(v.constraint == "logP" for v in result.violations)
+
+    def test_metabolic_disease_accepts_once_daily_oral_agent(self):
+        """Metabolic disease bundle accepts a candidate suited for chronic once-daily dosing."""
+        candidate = Candidate(
+            name="sglt2_inhibitor",
+            properties={
+                "logP": 2.5,
+                "molecular_weight": 420.0,
+                "hydrogen_bond_donors": 4,
+                "hydrogen_bond_acceptors": 8,
+                "hERG_IC50": 20.0,
+                "CYP3A4_IC50": 30.0,
+                "hepatic_clearance": 20.0,
+                "plasma_half_life": 14.0,
+                "oral_bioavailability": 60.0,
+                "protein_binding": 90.0,
+                "aqueous_solubility": 50.0,
+            },
+        )
+        result = evaluate_candidate(candidate, bundle_name="metabolic-disease", population=None, strict=True)
+        assert result.status == EvaluationStatus.ACCEPTED
+
+    def test_metabolic_disease_rejects_low_oral_bioavailability(self):
+        """Metabolic disease bundle rejects a candidate with insufficient oral bioavailability."""
+        candidate = Candidate(
+            name="poor_oral_agent",
+            properties={
+                "logP": 2.5,
+                "molecular_weight": 420.0,
+                "hydrogen_bond_donors": 4,
+                "hydrogen_bond_acceptors": 8,
+                "hERG_IC50": 20.0,
+                "CYP3A4_IC50": 30.0,
+                "hepatic_clearance": 20.0,
+                "plasma_half_life": 14.0,
+                "oral_bioavailability": 20.0,   # < 40% metabolic-disease floor
+                "protein_binding": 90.0,
+                "aqueous_solubility": 50.0,
+            },
+        )
+        result = evaluate_candidate(candidate, bundle_name="metabolic-disease", population=None, strict=True)
+        assert result.status == EvaluationStatus.REJECTED
+        assert any(v.constraint == "oral_bioavailability" for v in result.violations)
+
+    def test_metabolic_disease_rejects_high_hepatic_clearance(self):
+        """Metabolic disease bundle rejects a rapidly cleared compound."""
+        candidate = Candidate(
+            name="rapid_clearance_agent",
+            properties={
+                "logP": 2.5,
+                "molecular_weight": 420.0,
+                "hydrogen_bond_donors": 4,
+                "hydrogen_bond_acceptors": 8,
+                "hERG_IC50": 20.0,
+                "CYP3A4_IC50": 30.0,
+                "hepatic_clearance": 45.0,      # > 30 mL/min/kg limit
+                "plasma_half_life": 14.0,
+                "oral_bioavailability": 60.0,
+                "protein_binding": 90.0,
+                "aqueous_solubility": 50.0,
+            },
+        )
+        result = evaluate_candidate(candidate, bundle_name="metabolic-disease", population=None, strict=True)
+        assert result.status == EvaluationStatus.REJECTED
+        assert any(v.constraint == "hepatic_clearance" for v in result.violations)
+
+    def test_available_bundles_includes_new_pharma_bundles(self):
+        """CLI available_bundles() exposes all three pharma research bundles."""
+        bundles = available_bundles()
+        assert "oncology" in bundles
+        assert "anti-infective" in bundles
+        assert "metabolic-disease" in bundles

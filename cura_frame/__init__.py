@@ -41,6 +41,10 @@ from .constraints_library import (
     plasma_half_life_range,
     oral_bioavailability_min,
     hepatic_clearance_max,
+    cyp3a4_inhibition_min,
+    therapeutic_index_min,
+    protein_binding_max,
+    aqueous_solubility_min,
 
     # Constraint bundles
     core_safety_constraints,
@@ -48,6 +52,9 @@ from .constraints_library import (
     cns_drug_constraints,
     cardiology_oriented_constraints,
     cardiAnx_dual_domain_constraints,
+    oncology_constraints,
+    anti_infective_constraints,
+    metabolic_disease_constraints,
 )
 
 __all__ = [
@@ -78,6 +85,10 @@ __all__ = [
     "plasma_half_life_range",
     "oral_bioavailability_min",
     "hepatic_clearance_max",
+    "cyp3a4_inhibition_min",
+    "therapeutic_index_min",
+    "protein_binding_max",
+    "aqueous_solubility_min",
 
     # Bundles
     "core_safety_constraints",
@@ -85,4 +96,7 @@ __all__ = [
     "cns_drug_constraints",
     "cardiology_oriented_constraints",
     "cardiAnx_dual_domain_constraints",
+    "oncology_constraints",
+    "anti_infective_constraints",
+    "metabolic_disease_constraints",
 ]
