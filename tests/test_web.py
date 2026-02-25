@@ -229,6 +229,95 @@ class TestCalculator:
         # Result should be HTML, not a JSON blob
         assert not body.strip().startswith(b"{")
 
+    def test_calculator_lipinski_bundle_with_full_properties(self, registered_client):
+        """Lipinski bundle is fully evaluated when all Ro5 properties are provided."""
+        response = registered_client.post(
+            "/calculator",
+            data={
+                "logP": "3.0",
+                "molecular_weight": "350.0",
+                "hydrogen_bond_donors": "2",
+                "hydrogen_bond_acceptors": "6",
+                "bundle": "lipinski",
+            },
+        )
+        assert response.status_code == 200
+        assert b"accepted" in response.content.lower()
+
+    def test_calculator_lipinski_bundle_rejects_heavy_molecule(self, registered_client):
+        """Lipinski bundle rejects a molecule with MW > 500 Da."""
+        response = registered_client.post(
+            "/calculator",
+            data={
+                "logP": "3.0",
+                "molecular_weight": "650.0",   # violates MW ≤ 500
+                "hydrogen_bond_donors": "2",
+                "hydrogen_bond_acceptors": "6",
+                "bundle": "lipinski",
+            },
+        )
+        assert response.status_code == 200
+        assert b"rejected" in response.content.lower()
+        assert b"molecular_weight" in response.content
+
+    def test_calculator_cardianx_bundle_accepted(self, registered_client):
+        """CardiAnx bundle is fully evaluated with all required properties provided."""
+        response = registered_client.post(
+            "/calculator",
+            data={
+                "logP": "3.0",
+                "molecular_weight": "480.0",
+                "polar_surface_area": "70.0",
+                "hydrogen_bond_donors": "2",
+                "hydrogen_bond_acceptors": "6",
+                "hERG_IC50": "15.0",
+                "beta1_selectivity": "120.0",
+                "Kd_5HT1A": "10.0",
+                "Kd_5HT2A": "600.0",
+                "Kd_D2": "1200.0",
+                "plasma_half_life": "12.0",
+                "bundle": "cardianx",
+            },
+        )
+        assert response.status_code == 200
+        assert b"accepted" in response.content.lower()
+
+    def test_calculator_cardianx_bundle_rejected_herg(self, registered_client):
+        """CardiAnx bundle rejects a candidate with hERG IC50 below threshold."""
+        response = registered_client.post(
+            "/calculator",
+            data={
+                "logP": "3.0",
+                "molecular_weight": "480.0",
+                "polar_surface_area": "70.0",
+                "hydrogen_bond_donors": "2",
+                "hydrogen_bond_acceptors": "6",
+                "hERG_IC50": "2.0",   # violates hERG_IC50 ≥ 10
+                "beta1_selectivity": "120.0",
+                "Kd_5HT1A": "10.0",
+                "Kd_5HT2A": "600.0",
+                "Kd_D2": "1200.0",
+                "plasma_half_life": "12.0",
+                "bundle": "cardianx",
+            },
+        )
+        assert response.status_code == 200
+        assert b"rejected" in response.content.lower()
+        assert b"hERG" in response.content
+
+    def test_calculator_new_fields_shown_in_form(self, registered_client):
+        """Calculator GET page exposes the new property input fields."""
+        response = registered_client.get("/calculator")
+        body = response.content
+        assert b"molecular_weight" in body
+        assert b"polar_surface_area" in body
+        assert b"hydrogen_bond_donors" in body
+        assert b"hydrogen_bond_acceptors" in body
+        assert b"Kd_5HT1A" in body
+        assert b"Kd_5HT2A" in body
+        assert b"Kd_D2" in body
+        assert b"plasma_half_life" in body
+
 
 
 # ---------------------------------------------------------------------------

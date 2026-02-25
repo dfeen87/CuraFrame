@@ -65,14 +65,22 @@ def _init_db(db_path: str = DB_PATH) -> None:
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS logs (
-            id                INTEGER PRIMARY KEY AUTOINCREMENT,
-            username          TEXT    NOT NULL,
-            timestamp         TEXT    NOT NULL,
-            logP              REAL,
-            hERG_IC50         REAL,
-            beta1_selectivity REAL,
-            bundle            TEXT,
-            status            TEXT
+            id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+            username              TEXT    NOT NULL,
+            timestamp             TEXT    NOT NULL,
+            logP                  REAL,
+            hERG_IC50             REAL,
+            beta1_selectivity     REAL,
+            molecular_weight      REAL,
+            polar_surface_area    REAL,
+            hydrogen_bond_donors  REAL,
+            hydrogen_bond_acceptors REAL,
+            Kd_5HT1A              REAL,
+            Kd_5HT2A              REAL,
+            Kd_D2                 REAL,
+            plasma_half_life      REAL,
+            bundle                TEXT,
+            status                TEXT
         )
         """
     )
@@ -162,6 +170,14 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
         logP: float = Form(default=0.0),
         hERG_IC50: float = Form(default=0.0),
         beta1_selectivity: float = Form(default=0.0),
+        molecular_weight: float = Form(default=0.0),
+        polar_surface_area: float = Form(default=0.0),
+        hydrogen_bond_donors: float = Form(default=0.0),
+        hydrogen_bond_acceptors: float = Form(default=0.0),
+        Kd_5HT1A: float = Form(default=0.0),
+        Kd_5HT2A: float = Form(default=0.0),
+        Kd_D2: float = Form(default=0.0),
+        plasma_half_life: float = Form(default=0.0),
         bundle: str = Form(default="core-safety"),
     ):
         user = _current_user(session)
@@ -171,14 +187,27 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
         from cura_frame import Candidate
         from cura_frame.cli import evaluate_candidate
 
+        # Build properties dict, omitting zero-valued optional fields so that
+        # non-strict evaluation skips constraints whose data was not provided.
+        _all_props = {
+            "logP": logP,
+            "hERG_IC50": hERG_IC50,
+            "beta1_selectivity": beta1_selectivity,
+            "molecular_weight": molecular_weight,
+            "polar_surface_area": polar_surface_area,
+            "hydrogen_bond_donors": hydrogen_bond_donors,
+            "hydrogen_bond_acceptors": hydrogen_bond_acceptors,
+            "Kd_5HT1A": Kd_5HT1A,
+            "Kd_5HT2A": Kd_5HT2A,
+            "Kd_D2": Kd_D2,
+            "plasma_half_life": plasma_half_life,
+        }
+        properties = {k: v for k, v in _all_props.items() if v != 0.0}
+
         try:
             candidate = Candidate(
                 name="web_calculator",
-                properties={
-                    "logP": logP,
-                    "hERG_IC50": hERG_IC50,
-                    "beta1_selectivity": beta1_selectivity,
-                },
+                properties=properties,
             )
             result = evaluate_candidate(
                 candidate=candidate,
@@ -197,6 +226,14 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
                     "logP": logP,
                     "hERG_IC50": hERG_IC50,
                     "beta1_selectivity": beta1_selectivity,
+                    "molecular_weight": molecular_weight,
+                    "polar_surface_area": polar_surface_area,
+                    "hydrogen_bond_donors": hydrogen_bond_donors,
+                    "hydrogen_bond_acceptors": hydrogen_bond_acceptors,
+                    "Kd_5HT1A": Kd_5HT1A,
+                    "Kd_5HT2A": Kd_5HT2A,
+                    "Kd_D2": Kd_D2,
+                    "plasma_half_life": plasma_half_life,
                 },
             )
         except Exception as exc:  # noqa: BLE001
@@ -211,6 +248,14 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
                     "logP": logP,
                     "hERG_IC50": hERG_IC50,
                     "beta1_selectivity": beta1_selectivity,
+                    "molecular_weight": molecular_weight,
+                    "polar_surface_area": polar_surface_area,
+                    "hydrogen_bond_donors": hydrogen_bond_donors,
+                    "hydrogen_bond_acceptors": hydrogen_bond_acceptors,
+                    "Kd_5HT1A": Kd_5HT1A,
+                    "Kd_5HT2A": Kd_5HT2A,
+                    "Kd_D2": Kd_D2,
+                    "plasma_half_life": plasma_half_life,
                 },
             )
 
@@ -223,6 +268,14 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
         logP: float = Form(default=0.0),
         hERG_IC50: float = Form(default=0.0),
         beta1_selectivity: float = Form(default=0.0),
+        molecular_weight: float = Form(default=0.0),
+        polar_surface_area: float = Form(default=0.0),
+        hydrogen_bond_donors: float = Form(default=0.0),
+        hydrogen_bond_acceptors: float = Form(default=0.0),
+        Kd_5HT1A: float = Form(default=0.0),
+        Kd_5HT2A: float = Form(default=0.0),
+        Kd_D2: float = Form(default=0.0),
+        plasma_half_life: float = Form(default=0.0),
         bundle: str = Form(default="core-safety"),
         status_val: str = Form(default=""),
     ):
@@ -233,15 +286,23 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
         conn = _get_connection(resolved_db)
         conn.execute(
             """
-            INSERT INTO logs (username, timestamp, logP, hERG_IC50, beta1_selectivity, bundle, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO logs (
+                username, timestamp,
+                logP, hERG_IC50, beta1_selectivity,
+                molecular_weight, polar_surface_area,
+                hydrogen_bond_donors, hydrogen_bond_acceptors,
+                Kd_5HT1A, Kd_5HT2A, Kd_D2, plasma_half_life,
+                bundle, status
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 user,
                 datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
-                logP,
-                hERG_IC50,
-                beta1_selectivity,
+                logP, hERG_IC50, beta1_selectivity,
+                molecular_weight, polar_surface_area,
+                hydrogen_bond_donors, hydrogen_bond_acceptors,
+                Kd_5HT1A, Kd_5HT2A, Kd_D2, plasma_half_life,
                 bundle,
                 status_val,
             ),
@@ -262,7 +323,12 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
         conn = _get_connection(resolved_db)
         rows = conn.execute(
             """
-            SELECT id, timestamp, logP, hERG_IC50, beta1_selectivity, bundle, status
+            SELECT id, timestamp,
+                   logP, hERG_IC50, beta1_selectivity,
+                   molecular_weight, polar_surface_area,
+                   hydrogen_bond_donors, hydrogen_bond_acceptors,
+                   Kd_5HT1A, Kd_5HT2A, Kd_D2, plasma_half_life,
+                   bundle, status
             FROM logs
             WHERE username = ?
             ORDER BY id DESC
