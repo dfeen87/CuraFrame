@@ -4,10 +4,16 @@ services:
     env: python
     buildCommand: pip install -r requirements.txt && pip install -e .
     startCommand: uvicorn apps.web.main:app --host 0.0.0.0 --port $PORT
-    plan: free
+    plan: starter
+    disk:
+      name: curaframe-data
+      mountPath: /data
+      sizeGB: 1
     envVars:
       - key: CURAFRAME_DB
-        value: /opt/render/project/src/curaframe.db
+        value: /data/curaframe.db
+      - key: CURAFRAME_SECURE_COOKIES
+        value: "1"
 
   - type: web
     name: curaframe-console

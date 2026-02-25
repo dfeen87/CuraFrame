@@ -381,10 +381,31 @@ uvicorn apps.web.main:app --host 0.0.0.0 --port 8000
 ```
 
 Or deploy to Render.com using the included `render.yaml`:
-```bash
-# Render reads render.yaml automatically on connect
-# Start command: uvicorn apps.web.main:app --host 0.0.0.0 --port $PORT
-```
+
+**Render.com deployment with persistent database**
+
+CuraFrame stores users and evaluation logs in a SQLite database. On Render.com you **must** use a [Persistent Disk](https://render.com/docs/disks) so the database survives service restarts and redeploys. The included `render.yaml` already configures this automatically — here is what it does and how to set it up step-by-step:
+
+1. **Connect your repo to Render.com**
+   - Go to [render.com](https://render.com), sign in, and click **New → Blueprint**.
+   - Select the CuraFrame repository. Render will detect `render.yaml` and provision the services automatically.
+
+2. **What `render.yaml` configures**
+   - A **web service** (`curaframe-web`) running on the **Starter plan** (required for persistent disk support).
+   - A **1 GB persistent disk** mounted at `/data` — the SQLite database is stored at `/data/curaframe.db` and survives restarts.
+   - `CURAFRAME_DB=/data/curaframe.db` — tells the app where to find/create the database.
+   - `CURAFRAME_SECURE_COOKIES=1` — marks session cookies as `Secure` (required for HTTPS on Render).
+   - A second **web service** (`curaframe-console`) running the Streamlit console on the free plan (no database needed).
+
+3. **Why the free plan is not enough for the web service**
+   - Render's free tier does **not** support persistent disks. A database file written to the default filesystem (`/opt/render/project/src/`) is **ephemeral** — it is wiped every time the service restarts, which means all registered users and logs would be lost. The Starter plan (~$7/month) is the minimum that supports a persistent disk.
+
+4. **Manual setup (if you prefer not to use the Blueprint)**
+   - Create a **Web Service** with environment `Python`, build command `pip install -r requirements.txt && pip install -e .`, and start command `uvicorn apps.web.main:app --host 0.0.0.0 --port $PORT`.
+   - In the service settings, go to **Disks → Add Disk**, set the mount path to `/data` and size to `1 GB`.
+   - Add the environment variables `CURAFRAME_DB=/data/curaframe.db` and `CURAFRAME_SECURE_COOKIES=1`.
+
+The database tables (`users`, `logs`, `form_submissions`) are created automatically on first startup — no manual schema migration is required.
 
 Routes:
 - `GET /` → redirects to `/dashboard` (authenticated) or `/login`
