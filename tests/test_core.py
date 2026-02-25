@@ -35,6 +35,7 @@ from cura_frame.cli import (
     evaluate_candidate,
     load_candidate_from_json,
     serialize_result,
+    main as cli_main,
 )
 
 
@@ -752,3 +753,75 @@ class TestConstraintIntrospection:
         assert "constraints" in exported
         assert "populations" in exported
         assert exported["framework_name"] == "TestCuraFrame"
+
+
+# -----------------------------
+# CLI main() behaviour
+# -----------------------------
+
+class TestCliMain:
+    """Tests for CLI main() exit codes and error handling."""
+
+    def test_main_returns_0_for_accepted_candidate(self, tmp_path):
+        """Exit code 0 when candidate is ACCEPTED."""
+        candidate_json = tmp_path / "candidate.json"
+        candidate_json.write_text(
+            '{"name": "ok", "properties": {"logP": 3.0, "hERG_IC50": 20.0, "beta1_selectivity": 150.0}}',
+            encoding="utf-8",
+        )
+
+        exit_code = cli_main([str(candidate_json), "--bundle", "core-safety"])
+        assert exit_code == 0
+
+    def test_main_returns_1_for_rejected_candidate(self, tmp_path):
+        """Exit code 1 when candidate is REJECTED."""
+        candidate_json = tmp_path / "candidate.json"
+        candidate_json.write_text(
+            '{"name": "bad", "properties": {"logP": 9.0, "hERG_IC50": 20.0, "beta1_selectivity": 150.0}}',
+            encoding="utf-8",
+        )
+
+        exit_code = cli_main([str(candidate_json), "--bundle", "core-safety"])
+        assert exit_code == 1
+
+    def test_main_returns_2_for_indeterminate_candidate(self, tmp_path):
+        """Exit code 2 when candidate is INDETERMINATE (missing required property)."""
+        candidate_json = tmp_path / "candidate.json"
+        candidate_json.write_text(
+            '{"name": "incomplete", "properties": {"logP": 3.0}}',
+            encoding="utf-8",
+        )
+
+        # strict mode: missing properties → INDETERMINATE
+        exit_code = cli_main([str(candidate_json), "--bundle", "core-safety"])
+        assert exit_code == 2
+
+    def test_main_list_bundles_requires_no_positional_arg(self):
+        """--list-bundles works without providing a candidate_json path."""
+        exit_code = cli_main(["--list-bundles"])
+        assert exit_code == 0
+
+    def test_main_returns_1_for_missing_file(self, tmp_path):
+        """Exit code 1 and no crash when candidate file does not exist."""
+        missing = tmp_path / "no_such_file.json"
+        exit_code = cli_main([str(missing), "--bundle", "core-safety"])
+        assert exit_code == 1
+
+    def test_main_returns_1_for_invalid_json(self, tmp_path):
+        """Exit code 1 and no crash when candidate file contains invalid JSON."""
+        bad_json = tmp_path / "bad.json"
+        bad_json.write_text("not json at all", encoding="utf-8")
+
+        exit_code = cli_main([str(bad_json), "--bundle", "core-safety"])
+        assert exit_code == 1
+
+    def test_main_returns_1_for_unknown_bundle(self, tmp_path):
+        """Exit code 1 when an unrecognised bundle name is requested."""
+        candidate_json = tmp_path / "candidate.json"
+        candidate_json.write_text(
+            '{"name": "x", "properties": {"logP": 3.0}}',
+            encoding="utf-8",
+        )
+
+        exit_code = cli_main([str(candidate_json), "--bundle", "nonexistent-bundle"])
+        assert exit_code == 1
