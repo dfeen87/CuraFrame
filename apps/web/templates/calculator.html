@@ -8,16 +8,40 @@
   <h2>Candidate Properties</h2>
   <p style="color:#64748b;margin-bottom:1.2rem;font-size:.9rem">
     Enter property values below and select a constraint bundle to evaluate.
-    Missing properties are skipped (non-strict mode).
+    Leave a field at <strong>0</strong> to omit it (non-strict mode: missing properties are skipped).
   </p>
 
   <form id="calculator-form" method="post" action="/calculator">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+
+      {# ── Core / physicochemical ── #}
       <div class="form-group">
         <label for="logP">logP</label>
         <input type="number" id="logP" name="logP" step="0.01"
                value="{{ logP if logP is defined else '0.0' }}" />
       </div>
+      <div class="form-group">
+        <label for="molecular_weight">Molecular Weight (Da)</label>
+        <input type="number" id="molecular_weight" name="molecular_weight" step="0.1"
+               value="{{ molecular_weight if molecular_weight is defined else '0.0' }}" />
+      </div>
+      <div class="form-group">
+        <label for="polar_surface_area">Polar Surface Area (Ų)</label>
+        <input type="number" id="polar_surface_area" name="polar_surface_area" step="0.1"
+               value="{{ polar_surface_area if polar_surface_area is defined else '0.0' }}" />
+      </div>
+      <div class="form-group">
+        <label for="hydrogen_bond_donors">H-Bond Donors</label>
+        <input type="number" id="hydrogen_bond_donors" name="hydrogen_bond_donors" step="1"
+               value="{{ hydrogen_bond_donors if hydrogen_bond_donors is defined else '0.0' }}" />
+      </div>
+      <div class="form-group">
+        <label for="hydrogen_bond_acceptors">H-Bond Acceptors</label>
+        <input type="number" id="hydrogen_bond_acceptors" name="hydrogen_bond_acceptors" step="1"
+               value="{{ hydrogen_bond_acceptors if hydrogen_bond_acceptors is defined else '0.0' }}" />
+      </div>
+
+      {# ── Cardiac safety ── #}
       <div class="form-group">
         <label for="hERG_IC50">hERG IC₅₀ (μM)</label>
         <input type="number" id="hERG_IC50" name="hERG_IC50" step="0.01"
@@ -28,6 +52,32 @@
         <input type="number" id="beta1_selectivity" name="beta1_selectivity" step="0.1"
                value="{{ beta1_selectivity if beta1_selectivity is defined else '0.0' }}" />
       </div>
+
+      {# ── Serotonergic / dopaminergic (CardiAnx) ── #}
+      <div class="form-group">
+        <label for="Kd_5HT1A">Kd 5-HT₁ₐ (nM)</label>
+        <input type="number" id="Kd_5HT1A" name="Kd_5HT1A" step="0.1"
+               value="{{ Kd_5HT1A if Kd_5HT1A is defined else '0.0' }}" />
+      </div>
+      <div class="form-group">
+        <label for="Kd_5HT2A">Kd 5-HT₂ₐ (nM)</label>
+        <input type="number" id="Kd_5HT2A" name="Kd_5HT2A" step="0.1"
+               value="{{ Kd_5HT2A if Kd_5HT2A is defined else '0.0' }}" />
+      </div>
+      <div class="form-group">
+        <label for="Kd_D2">Kd D₂ (nM)</label>
+        <input type="number" id="Kd_D2" name="Kd_D2" step="0.1"
+               value="{{ Kd_D2 if Kd_D2 is defined else '0.0' }}" />
+      </div>
+
+      {# ── Pharmacokinetics ── #}
+      <div class="form-group">
+        <label for="plasma_half_life">Plasma Half-Life (h)</label>
+        <input type="number" id="plasma_half_life" name="plasma_half_life" step="0.1"
+               value="{{ plasma_half_life if plasma_half_life is defined else '0.0' }}" />
+      </div>
+
+      {# ── Bundle selector ── #}
       <div class="form-group">
         <label for="bundle">Constraint Bundle</label>
         <select id="bundle" name="bundle">
@@ -46,6 +96,7 @@
           {% endfor %}
         </select>
       </div>
+
     </div>
   </form>
 
@@ -115,6 +166,14 @@
     <input type="hidden" name="logP" value="{{ logP }}">
     <input type="hidden" name="hERG_IC50" value="{{ hERG_IC50 }}">
     <input type="hidden" name="beta1_selectivity" value="{{ beta1_selectivity }}">
+    <input type="hidden" name="molecular_weight" value="{{ molecular_weight }}">
+    <input type="hidden" name="polar_surface_area" value="{{ polar_surface_area }}">
+    <input type="hidden" name="hydrogen_bond_donors" value="{{ hydrogen_bond_donors }}">
+    <input type="hidden" name="hydrogen_bond_acceptors" value="{{ hydrogen_bond_acceptors }}">
+    <input type="hidden" name="Kd_5HT1A" value="{{ Kd_5HT1A }}">
+    <input type="hidden" name="Kd_5HT2A" value="{{ Kd_5HT2A }}">
+    <input type="hidden" name="Kd_D2" value="{{ Kd_D2 }}">
+    <input type="hidden" name="plasma_half_life" value="{{ plasma_half_life }}">
     <input type="hidden" name="bundle" value="{{ bundle }}">
     <input type="hidden" name="status_val" value="{{ result.status.value }}">
     <button type="submit" class="btn btn-primary">📝 Record Log</button>

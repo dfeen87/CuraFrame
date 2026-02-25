@@ -11,14 +11,23 @@
   </p>
 
   {% if logs %}
+  <div style="overflow-x:auto">
   <table>
     <thead>
       <tr>
         <th>#</th>
         <th>Timestamp</th>
         <th>logP</th>
+        <th>MW (Da)</th>
+        <th>PSA (Ų)</th>
+        <th>HBD</th>
+        <th>HBA</th>
         <th>hERG IC₅₀</th>
-        <th>β₁ Selectivity</th>
+        <th>β₁ Sel.</th>
+        <th>Kd 5HT1A</th>
+        <th>Kd 5HT2A</th>
+        <th>Kd D2</th>
+        <th>t½ (h)</th>
         <th>Bundle</th>
         <th>Status</th>
       </tr>
@@ -28,15 +37,24 @@
       <tr>
         <td>{{ entry.id }}</td>
         <td style="font-size:.85rem;color:#475569">{{ entry.timestamp }}</td>
-        <td>{{ entry.logP }}</td>
-        <td>{{ entry.hERG_IC50 }}</td>
-        <td>{{ entry.beta1_selectivity }}</td>
+        <td>{{ entry.logP or '—' }}</td>
+        <td>{{ entry.molecular_weight or '—' }}</td>
+        <td>{{ entry.polar_surface_area or '—' }}</td>
+        <td>{{ entry.hydrogen_bond_donors or '—' }}</td>
+        <td>{{ entry.hydrogen_bond_acceptors or '—' }}</td>
+        <td>{{ entry.hERG_IC50 or '—' }}</td>
+        <td>{{ entry.beta1_selectivity or '—' }}</td>
+        <td>{{ entry.Kd_5HT1A or '—' }}</td>
+        <td>{{ entry.Kd_5HT2A or '—' }}</td>
+        <td>{{ entry.Kd_D2 or '—' }}</td>
+        <td>{{ entry.plasma_half_life or '—' }}</td>
         <td>{{ entry.bundle }}</td>
         <td><span class="badge badge-{{ entry.status }}">{{ entry.status }}</span></td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  </div>
   {% else %}
   <p class="alert alert-info">No logs recorded yet. Run the calculator and click <strong>Record Log</strong> to save a result.</p>
   {% endif %}
