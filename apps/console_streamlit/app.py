@@ -16,6 +16,7 @@ This application does NOT:
 """
 
 import json
+import random
 import streamlit as st
 import urllib.parse
 
@@ -382,7 +383,6 @@ if evaluate_button:
 
         # AILEE Trust Score
         if use_ailee:
-            import random
             trust_score = random.uniform(0.85, 0.99) if result.status == EvaluationStatus.ACCEPTED else random.uniform(0.15, 0.45)
             st.info(f"🛡️ **AILEE Trust Score:** {trust_score:.2f} — Validated with 95% confidence")
 
@@ -584,9 +584,8 @@ with col_usage:
         - Each bundle has different safety/design criteria
 
         **2. Define your candidate** (main panel)
-        - Enter properties as JSON
-        - Use examples as templates
-        - Upload from file if available
+        - **Calculator mode:** Enter property values directly via form fields
+        - **JSON mode:** Enter properties as JSON, use examples as templates, or upload from file
 
         **3. (Optional) Apply population context**
         - Select patient population if applicable
