@@ -153,6 +153,18 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
     sessions: dict[str, str] = {}
 
     # ------------------------------------------------------------------
+    # Security headers middleware
+    # ------------------------------------------------------------------
+
+    @app.middleware("http")
+    async def add_security_headers(request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
+    # ------------------------------------------------------------------
     # Auth helpers (scoped to this app instance)
     # ------------------------------------------------------------------
 

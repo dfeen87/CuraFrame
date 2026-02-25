@@ -75,17 +75,22 @@
   </style>
 </head>
 <body>
-{% if user is defined and user %}
 <nav>
   <span class="brand">🧬 CuraFrame</span>
+  {% if user is defined and user %}
   <a href="/dashboard">Dashboard</a>
   <a href="/calculator">Calculator</a>
   <a href="/logs">Logs</a>
   <span class="spacer"></span>
   <span style="color:#94a3b8;font-size:.9rem">{{ user }}</span>
   <a href="/logout">Logout</a>
+  {% else %}
+  <span class="spacer"></span>
+  {% if request.url.path not in ['/login', '/register'] %}
+  <a href="/login" class="btn btn-primary btn-sm" style="text-decoration:none">Sign In</a>
+  {% endif %}
+  {% endif %}
 </nav>
-{% endif %}
 
 <main>
   {% block content %}{% endblock %}
