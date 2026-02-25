@@ -36,9 +36,9 @@ def registered_client(client):
     """A TestClient that already has a logged-in session."""
     client.post(
         "/register",
-        data={"username": "alice", "email": "alice@example.com", "password": "secret"},
+        data={"username": "alice", "email": "alice@example.com", "password": "secret01"},
     )
-    client.post("/login", data={"username": "alice", "password": "secret"})
+    client.post("/login", data={"username": "alice", "password": "secret01"})
     return client
 
 
@@ -69,13 +69,13 @@ class TestRegistration:
 
     def test_register_prevents_duplicate_username(self, client):
         """Registering the same username twice returns a 400 with an error message."""
-        data = {"username": "carol", "email": "carol@example.com", "password": "pw"}
+        data = {"username": "carol", "email": "carol@example.com", "password": "password1"}
         client.post("/register", data=data)
 
         # Second attempt with same username
         response = client.post(
             "/register",
-            data={"username": "carol", "email": "carol2@example.com", "password": "pw"},
+            data={"username": "carol", "email": "carol2@example.com", "password": "password1"},
         )
         assert response.status_code == 400
         assert b"already" in response.content.lower()
@@ -84,11 +84,11 @@ class TestRegistration:
         """Registering the same email twice returns a 400 with an error message."""
         client.post(
             "/register",
-            data={"username": "dave", "email": "shared@example.com", "password": "pw"},
+            data={"username": "dave", "email": "shared@example.com", "password": "password1"},
         )
         response = client.post(
             "/register",
-            data={"username": "dave2", "email": "shared@example.com", "password": "pw"},
+            data={"username": "dave2", "email": "shared@example.com", "password": "password1"},
         )
         assert response.status_code == 400
         assert b"already" in response.content.lower()
@@ -97,10 +97,19 @@ class TestRegistration:
         """Missing a required field returns a 400 or 422."""
         response = client.post(
             "/register",
-            data={"username": "eve", "email": "", "password": "pw"},
+            data={"username": "eve", "email": "", "password": "password1"},
         )
         # FastAPI form validation or our own check should catch this
         assert response.status_code in (400, 422)
+
+    def test_register_rejects_short_password(self, client):
+        """Passwords shorter than 8 characters are rejected with a 400."""
+        response = client.post(
+            "/register",
+            data={"username": "shortpw", "email": "shortpw@example.com", "password": "abc"},
+        )
+        assert response.status_code == 400
+        assert b"8" in response.content  # error message mentions the minimum length
 
 
 # ---------------------------------------------------------------------------
@@ -116,10 +125,10 @@ class TestLogin:
     def test_login_with_valid_credentials_redirects_to_dashboard(self, client):
         client.post(
             "/register",
-            data={"username": "frank", "email": "frank@example.com", "password": "pw"},
+            data={"username": "frank", "email": "frank@example.com", "password": "password1"},
         )
         response = client.post(
-            "/login", data={"username": "frank", "password": "pw"}
+            "/login", data={"username": "frank", "password": "password1"}
         )
         assert response.status_code == 200
         # Should end up on the dashboard
@@ -128,10 +137,10 @@ class TestLogin:
     def test_login_with_wrong_password_returns_401(self, client):
         client.post(
             "/register",
-            data={"username": "grace", "email": "grace@example.com", "password": "right"},
+            data={"username": "grace", "email": "grace@example.com", "password": "rightpass"},
         )
         response = client.post(
-            "/login", data={"username": "grace", "password": "wrong"}
+            "/login", data={"username": "grace", "password": "wrongpass"}
         )
         assert response.status_code == 401
         assert b"Invalid" in response.content
@@ -318,6 +327,22 @@ class TestCalculator:
         assert b"Kd_D2" in body
         assert b"plasma_half_life" in body
 
+    def test_calculator_zero_logP_is_evaluated_not_skipped(self, registered_client):
+        """A submitted logP of 0.0 must be included in evaluation, not treated as absent."""
+        # logP=0.0 satisfies the ≤ 4.0 constraint, so the result should be accepted
+        # (previously a 0.0 was silently dropped, making the result indeterminate).
+        response = registered_client.post(
+            "/calculator",
+            data={
+                "logP": "0.0",
+                "hERG_IC50": "20.0",
+                "beta1_selectivity": "150.0",
+                "bundle": "core-safety",
+            },
+        )
+        assert response.status_code == 200
+        assert b"accepted" in response.content.lower()
+
 
 
 # ---------------------------------------------------------------------------
@@ -359,12 +384,12 @@ class TestLogs:
         client_b = TestClient(app, follow_redirects=True)
 
         # Register and log in as user A
-        client_a.post("/register", data={"username": "ua", "email": "ua@x.com", "password": "pw"})
-        client_a.post("/login", data={"username": "ua", "password": "pw"})
+        client_a.post("/register", data={"username": "ua", "email": "ua@x.com", "password": "password1"})
+        client_a.post("/login", data={"username": "ua", "password": "password1"})
 
         # Register and log in as user B
-        client_b.post("/register", data={"username": "ub", "email": "ub@x.com", "password": "pw"})
-        client_b.post("/login", data={"username": "ub", "password": "pw"})
+        client_b.post("/register", data={"username": "ub", "email": "ub@x.com", "password": "password1"})
+        client_b.post("/login", data={"username": "ub", "password": "password1"})
 
         # User A records a log
         client_a.post(
