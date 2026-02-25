@@ -1,0 +1,9 @@
+{
+  "name": "high_logP_hERG_risk_candidate",
+  "provenance": "Simulated candidate violating logP and hERG core-safety constraints",
+  "properties": {
+    "logP": 5.5,
+    "hERG_IC50": 4.0,
+    "beta1_selectivity": 120.0
+  }
+}

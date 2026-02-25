@@ -1,0 +1,10 @@
+{
+  "name": "oral_drug_like_candidate",
+  "provenance": "Simulated candidate satisfying Lipinski Rule of Five",
+  "properties": {
+    "molecular_weight": 350.0,
+    "logP": 3.5,
+    "hydrogen_bond_donors": 3,
+    "hydrogen_bond_acceptors": 7
+  }
+}

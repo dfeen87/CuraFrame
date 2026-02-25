@@ -1,0 +1,15 @@
+{
+  "name": "narrow_therapeutic_index_agent",
+  "provenance": "Simulated oncology candidate with insufficient therapeutic index",
+  "properties": {
+    "logP": 3.5,
+    "molecular_weight": 450.0,
+    "hydrogen_bond_donors": 3,
+    "hydrogen_bond_acceptors": 8,
+    "hERG_IC50": 20.0,
+    "CYP3A4_IC50": 15.0,
+    "therapeutic_index": 1.5,
+    "protein_binding": 90.0,
+    "aqueous_solubility": 5.0
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "cardiac_safe_beta_blocker",
+  "provenance": "Simulated cardioselective beta-blocker candidate with high hERG safety margin",
+  "properties": {
+    "logP": 2.8,
+    "hERG_IC50": 20.0,
+    "beta1_selectivity": 120.0,
+    "molecular_weight": 350.0
+  }
+}

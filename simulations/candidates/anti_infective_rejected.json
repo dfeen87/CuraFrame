@@ -1,0 +1,15 @@
+{
+  "name": "highly_protein_bound_antibiotic",
+  "provenance": "Simulated antibiotic candidate failing protein binding anti-infective constraint",
+  "properties": {
+    "logP": 1.0,
+    "molecular_weight": 380.0,
+    "hydrogen_bond_donors": 4,
+    "hydrogen_bond_acceptors": 8,
+    "hERG_IC50": 20.0,
+    "CYP3A4_IC50": 30.0,
+    "protein_binding": 92.0,
+    "aqueous_solubility": 100.0,
+    "oral_bioavailability": 50.0
+  }
+}
