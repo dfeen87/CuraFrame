@@ -1,0 +1,17 @@
+{
+  "name": "once_daily_oral_metabolic_agent",
+  "provenance": "Simulated SGLT2-inhibitor type candidate satisfying metabolic disease constraints",
+  "properties": {
+    "logP": 2.5,
+    "molecular_weight": 420.0,
+    "hydrogen_bond_donors": 4,
+    "hydrogen_bond_acceptors": 8,
+    "hERG_IC50": 20.0,
+    "CYP3A4_IC50": 30.0,
+    "hepatic_clearance": 20.0,
+    "plasma_half_life": 14.0,
+    "oral_bioavailability": 60.0,
+    "protein_binding": 90.0,
+    "aqueous_solubility": 50.0
+  }
+}

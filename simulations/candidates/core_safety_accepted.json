@@ -1,0 +1,9 @@
+{
+  "name": "safe_cardioselective_candidate",
+  "provenance": "Simulated candidate satisfying all core-safety constraints",
+  "properties": {
+    "logP": 2.5,
+    "hERG_IC50": 25.0,
+    "beta1_selectivity": 120.0
+  }
+}

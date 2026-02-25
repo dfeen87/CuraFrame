@@ -1,0 +1,17 @@
+{
+  "name": "cardianx_dual_domain_candidate",
+  "provenance": "Simulated CardiAnx-1 type dual-domain beta-blocker/anxiolytic candidate",
+  "properties": {
+    "logP": 3.2,
+    "polar_surface_area": 70.0,
+    "molecular_weight": 480.0,
+    "hydrogen_bond_donors": 2,
+    "hydrogen_bond_acceptors": 6,
+    "hERG_IC50": 15.0,
+    "beta1_selectivity": 120.0,
+    "Kd_5HT1A": 10.0,
+    "Kd_5HT2A": 700.0,
+    "Kd_D2": 1500.0,
+    "plasma_half_life": 12.0
+  }
+}

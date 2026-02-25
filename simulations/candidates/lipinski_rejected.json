@@ -1,0 +1,10 @@
+{
+  "name": "non_drug_like_macromolecule",
+  "provenance": "Simulated candidate violating multiple Lipinski Rule of Five constraints",
+  "properties": {
+    "molecular_weight": 650.0,
+    "logP": 6.5,
+    "hydrogen_bond_donors": 7,
+    "hydrogen_bond_acceptors": 12
+  }
+}

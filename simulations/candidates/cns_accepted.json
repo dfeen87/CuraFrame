@@ -1,0 +1,11 @@
+{
+  "name": "bbb_penetrant_cns_candidate",
+  "provenance": "Simulated candidate satisfying CNS MPO constraints for blood-brain barrier penetration",
+  "properties": {
+    "logP": 3.0,
+    "polar_surface_area": 65.0,
+    "molecular_weight": 380.0,
+    "hydrogen_bond_donors": 2,
+    "hydrogen_bond_acceptors": 6
+  }
+}
