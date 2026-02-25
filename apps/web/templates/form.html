@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}All Tests — CuraFrame{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom:1.5rem">🧪 All Test Types</h1>
+
+<div class="card">
+  <h2>Candidate Properties</h2>
+  <p style="color:#64748b;margin-bottom:1.2rem;font-size:.9rem">
+    Enter property values below and click <strong>Run All Tests</strong> to evaluate
+    the candidate against every available constraint bundle at once.
+    Leave a field blank or at <strong>0</strong> to omit it.
+  </p>
+
+  <form id="form-all" method="post" action="/form">
+    <table style="width:100%;max-width:560px">
+      <thead>
+        <tr>
+          <th style="width:60%">Property</th>
+          <th>Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set fields = [
+          ("logP",                   "logP",                   "logP",                   "0.01"),
+          ("molecular_weight",       "Molecular Weight (Da)",  "molecular_weight",       "0.1"),
+          ("polar_surface_area",     "Polar Surface Area (Ų)", "polar_surface_area",     "0.1"),
+          ("hydrogen_bond_donors",   "H-Bond Donors",          "hydrogen_bond_donors",   "1"),
+          ("hydrogen_bond_acceptors","H-Bond Acceptors",       "hydrogen_bond_acceptors","1"),
+          ("hERG_IC50",              "hERG IC₅₀ (μM)",         "hERG_IC50",              "0.01"),
+          ("beta1_selectivity",      "β₁ Selectivity (ratio)", "beta1_selectivity",      "0.1"),
+          ("Kd_5HT1A",               "Kd 5-HT₁ₐ (nM)",        "Kd_5HT1A",               "0.1"),
+          ("Kd_5HT2A",               "Kd 5-HT₂ₐ (nM)",        "Kd_5HT2A",               "0.1"),
+          ("Kd_D2",                  "Kd D₂ (nM)",             "Kd_D2",                  "0.1"),
+          ("plasma_half_life",       "Plasma Half-Life (h)",   "plasma_half_life",       "0.1"),
+        ] %}
+        {% for fname, flabel, finput, fstep in fields %}
+        <tr>
+          <td><label for="{{ finput }}" style="font-weight:600;font-size:.9rem">{{ flabel }}</label></td>
+          <td>
+            <input type="number" id="{{ finput }}" name="{{ finput }}" step="{{ fstep }}"
+                   value="{{ values[fname] if values is defined and fname in values else '0.0' }}"
+                   style="width:140px;padding:.35rem .6rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.9rem" />
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div style="margin-top:1.2rem">
+      <button type="submit" class="btn btn-primary">🔬 Run All Tests</button>
+    </div>
+  </form>
+</div>
+
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+{% if results %}
+<div class="card">
+  <h2>Results — All Bundles</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Bundle</th>
+        <th>Status</th>
+        <th>Violations</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in results %}
+      <tr>
+        <td><strong>{{ row.label }}</strong></td>
+        <td>
+          <span class="badge badge-{{ row.status }}">{{ row.status }}</span>
+        </td>
+        <td style="font-size:.85rem;color:#475569">
+          {% if row.violations %}
+            {% for v in row.violations %}
+              <div>{{ v.constraint }}: {{ v.observed }} (limit {{ v.threshold }})</div>
+            {% endfor %}
+          {% else %}
+            —
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import os
 import secrets
 import sqlite3
@@ -93,6 +94,27 @@ def _init_db(db_path: str = DB_PATH) -> None:
             plasma_half_life      REAL,
             bundle                TEXT,
             status                TEXT
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS form_submissions (
+            id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+            username                TEXT    NOT NULL,
+            timestamp               TEXT    NOT NULL,
+            logP                    REAL,
+            hERG_IC50               REAL,
+            beta1_selectivity       REAL,
+            molecular_weight        REAL,
+            polar_surface_area      REAL,
+            hydrogen_bond_donors    REAL,
+            hydrogen_bond_acceptors REAL,
+            Kd_5HT1A                REAL,
+            Kd_5HT2A                REAL,
+            Kd_D2                   REAL,
+            plasma_half_life        REAL,
+            results_json            TEXT
         )
         """
     )
@@ -308,6 +330,133 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
                     "plasma_half_life": plasma_half_life,
                 },
             )
+
+    # ---- All-bundles form ------------------------------------------------
+
+    _ALL_BUNDLES = [
+        ("core-safety",  "Core Safety"),
+        ("lipinski",     "Lipinski Ro5"),
+        ("cns",          "CNS Constraints"),
+        ("cardiology",   "Cardiology-Oriented"),
+        ("cardianx",     "CardiAnx Dual-Domain"),
+        ("oncology",     "Oncology"),
+        ("anti-infective", "Anti-Infective"),
+        ("metabolic-disease", "Metabolic Disease"),
+    ]
+
+    @app.get("/form", response_class=HTMLResponse)
+    async def form_get(
+        request: Request,
+        session: Optional[str] = Cookie(default=None),
+    ):
+        user = _current_user(session)
+        if not user:
+            return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
+        return templates.TemplateResponse(
+            request, "form.html", {"user": user, "results": None, "error": None}
+        )
+
+    @app.post("/form", response_class=HTMLResponse)
+    async def form_post(
+        request: Request,
+        session: Optional[str] = Cookie(default=None),
+        logP: Optional[float] = Form(default=None),
+        hERG_IC50: Optional[float] = Form(default=None),
+        beta1_selectivity: Optional[float] = Form(default=None),
+        molecular_weight: Optional[float] = Form(default=None),
+        polar_surface_area: Optional[float] = Form(default=None),
+        hydrogen_bond_donors: Optional[float] = Form(default=None),
+        hydrogen_bond_acceptors: Optional[float] = Form(default=None),
+        Kd_5HT1A: Optional[float] = Form(default=None),
+        Kd_5HT2A: Optional[float] = Form(default=None),
+        Kd_D2: Optional[float] = Form(default=None),
+        plasma_half_life: Optional[float] = Form(default=None),
+    ):
+        user = _current_user(session)
+        if not user:
+            return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
+
+        from cura_frame import Candidate
+        from cura_frame.cli import evaluate_candidate
+
+        _all_props = {
+            "logP": logP,
+            "hERG_IC50": hERG_IC50,
+            "beta1_selectivity": beta1_selectivity,
+            "molecular_weight": molecular_weight,
+            "polar_surface_area": polar_surface_area,
+            "hydrogen_bond_donors": hydrogen_bond_donors,
+            "hydrogen_bond_acceptors": hydrogen_bond_acceptors,
+            "Kd_5HT1A": Kd_5HT1A,
+            "Kd_5HT2A": Kd_5HT2A,
+            "Kd_D2": Kd_D2,
+            "plasma_half_life": plasma_half_life,
+        }
+        properties = {k: v for k, v in _all_props.items() if v is not None}
+        values = {k: v for k, v in _all_props.items() if v is not None}
+
+        results = []
+        try:
+            candidate = Candidate(name="form_all_tests", properties=properties)
+            for bundle_key, bundle_label in _ALL_BUNDLES:
+                result = evaluate_candidate(
+                    candidate=candidate,
+                    bundle_name=bundle_key,
+                    population=None,
+                    strict=False,
+                )
+                results.append({
+                    "label": bundle_label,
+                    "status": result.status.value,
+                    "violations": result.violations,
+                })
+        except Exception as exc:  # noqa: BLE001
+            return templates.TemplateResponse(
+                request,
+                "form.html",
+                {"user": user, "results": None, "error": str(exc), "values": values},
+            )
+
+        # Persist the submission and its results to the database
+        results_json = json.dumps([
+            {"bundle": r["label"], "status": r["status"],
+             "violations": [
+                 {"constraint": v.constraint, "observed": v.observed,
+                  "threshold": v.threshold, "severity": v.severity.value}
+                 for v in r["violations"]
+             ]}
+            for r in results
+        ])
+        conn = _get_connection(resolved_db)
+        conn.execute(
+            """
+            INSERT INTO form_submissions (
+                username, timestamp,
+                logP, hERG_IC50, beta1_selectivity,
+                molecular_weight, polar_surface_area,
+                hydrogen_bond_donors, hydrogen_bond_acceptors,
+                Kd_5HT1A, Kd_5HT2A, Kd_D2, plasma_half_life,
+                results_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user,
+                datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+                logP, hERG_IC50, beta1_selectivity,
+                molecular_weight, polar_surface_area,
+                hydrogen_bond_donors, hydrogen_bond_acceptors,
+                Kd_5HT1A, Kd_5HT2A, Kd_D2, plasma_half_life,
+                results_json,
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+        return templates.TemplateResponse(
+            request,
+            "form.html",
+            {"user": user, "results": results, "error": None, "values": values},
+        )
 
     # ---- Log recording ---------------------------------------------------
 

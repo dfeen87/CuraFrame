@@ -435,22 +435,149 @@ class TestSecurityHeaders:
 
 
 # ---------------------------------------------------------------------------
-# Nav bar Sign In button visibility
+# Three-dots dropdown menu (Sign in / Sign out)
 # ---------------------------------------------------------------------------
 
-class TestSignInButton:
-    def test_sign_in_button_absent_on_login_page(self, client):
-        """Sign In button must NOT appear on the /login page itself."""
+class TestSignInMenu:
+    def test_dropdown_has_sign_in_on_public_page(self, client):
+        """The three-dots dropdown must offer 'Sign in' on public pages."""
         response = client.get("/login")
-        # The nav Sign In anchor should not be rendered on the login page
+        assert b'href="/login"' in response.content
+        assert b'Sign in' in response.content
+
+    def test_dropdown_has_sign_in_on_register_page(self, client):
+        """The three-dots dropdown must offer 'Sign in' on the register page."""
+        response = client.get("/register")
+        assert b'href="/login"' in response.content
+        assert b'Sign in' in response.content
+
+    def test_dropdown_sign_in_not_a_nav_button(self, client):
+        """Sign in must appear as a plain dropdown link, not a btn-primary nav button."""
+        response = client.get("/login")
         assert b'href="/login" class="btn btn-primary btn-sm"' not in response.content
 
-    def test_sign_in_button_absent_on_register_page(self, client):
-        """Sign In button must NOT appear on the /register page."""
-        response = client.get("/register")
-        assert b'href="/login" class="btn btn-primary btn-sm"' not in response.content
+    def test_dropdown_has_sign_out_when_authenticated(self, registered_client):
+        """The three-dots dropdown must offer 'Sign out' when the user is logged in."""
+        response = registered_client.get("/dashboard")
+        assert b'href="/logout"' in response.content
+        assert b'Sign out' in response.content
+
+    def test_dropdown_has_about_item(self, client):
+        """The three-dots dropdown must always show an 'About' item."""
+        response = client.get("/login")
+        assert b'About' in response.content
+
+    def test_dropdown_form_link_absent_when_unauthenticated(self, client):
+        """The Form link must NOT appear in the dropdown for unauthenticated users."""
+        response = client.get("/login")
+        assert b'href="/form"' not in response.content
+
+    def test_dropdown_form_link_present_when_authenticated(self, registered_client):
+        """The Form link must appear in the dropdown when the user is signed in."""
+        response = registered_client.get("/dashboard")
+        assert b'href="/form"' in response.content
 
     def test_register_form_has_minlength_8(self, client):
         """Register form password input must declare minlength=8 for client-side enforcement."""
         response = client.get("/register")
         assert b'minlength="8"' in response.content
+
+
+# ---------------------------------------------------------------------------
+# All-bundles form (/form)
+# ---------------------------------------------------------------------------
+
+class TestAllBundlesForm:
+    def test_form_redirects_unauthenticated(self, client):
+        """GET /form redirects unauthenticated users to /login."""
+        response = client.get("/form")
+        assert response.status_code == 200
+        assert b"Log In" in response.content or b"login" in response.content.lower()
+
+    def test_form_get_returns_html_when_authenticated(self, registered_client):
+        """GET /form returns the form page for signed-in users."""
+        response = registered_client.get("/form")
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert b"Run All Tests" in response.content
+
+    def test_form_shows_all_property_rows(self, registered_client):
+        """The form page exposes an input row for every property."""
+        response = registered_client.get("/form")
+        body = response.content
+        for field in [b"logP", b"molecular_weight", b"hERG_IC50",
+                      b"beta1_selectivity", b"Kd_5HT1A", b"plasma_half_life"]:
+            assert field in body
+
+    def test_form_post_returns_results_for_all_bundles(self, registered_client):
+        """POST /form evaluates all bundles and shows a result row for each."""
+        response = registered_client.post(
+            "/form",
+            data={
+                "logP": "3.0",
+                "hERG_IC50": "20.0",
+                "beta1_selectivity": "150.0",
+            },
+        )
+        assert response.status_code == 200
+        body = response.content
+        for label in [b"Core Safety", b"Lipinski", b"CNS", b"Cardiology",
+                      b"CardiAnx", b"Oncology", b"Anti-Infective", b"Metabolic"]:
+            assert label in body
+
+    def test_form_post_persists_submission_to_db(self, tmp_path):
+        """POST /form must save a row to the form_submissions table."""
+        import sqlite3
+        from apps.web.main import create_app
+        from fastapi.testclient import TestClient
+
+        db_path = str(tmp_path / "form_test.db")
+        application = create_app(db_path=db_path)
+        c = TestClient(application, follow_redirects=True)
+        c.post("/register", data={"username": "u1", "email": "u1@x.com", "password": "password1"})
+        c.post("/login", data={"username": "u1", "password": "password1"})
+        c.post("/form", data={"logP": "2.5", "hERG_IC50": "15.0"})
+
+        conn = sqlite3.connect(db_path)
+        rows = conn.execute("SELECT username, logP, results_json FROM form_submissions").fetchall()
+        conn.close()
+        assert len(rows) == 1
+        assert rows[0][0] == "u1"
+        assert rows[0][1] == 2.5
+        assert "core-safety" in rows[0][2].lower() or "Core Safety" in rows[0][2]
+
+    def test_form_submissions_are_per_user(self, tmp_path):
+        """Each user's submissions are stored independently."""
+        import sqlite3
+        from apps.web.main import create_app
+        from fastapi.testclient import TestClient
+
+        db_path = str(tmp_path / "form_multi.db")
+        application = create_app(db_path=db_path)
+
+        c1 = TestClient(application, follow_redirects=True)
+        c1.post("/register", data={"username": "ua", "email": "ua@x.com", "password": "password1"})
+        c1.post("/login", data={"username": "ua", "password": "password1"})
+        c1.post("/form", data={"logP": "1.0"})
+
+        c2 = TestClient(application, follow_redirects=True)
+        c2.post("/register", data={"username": "ub", "email": "ub@x.com", "password": "password1"})
+        c2.post("/login", data={"username": "ub", "password": "password1"})
+        # user b has not submitted the form
+
+        conn = sqlite3.connect(db_path)
+        ua_rows = conn.execute(
+            "SELECT username FROM form_submissions WHERE username=?", ("ua",)
+        ).fetchall()
+        ub_rows = conn.execute(
+            "SELECT username FROM form_submissions WHERE username=?", ("ub",)
+        ).fetchall()
+        conn.close()
+        assert len(ua_rows) == 1
+        assert len(ub_rows) == 0
+
+    def test_form_post_redirects_unauthenticated(self, client):
+        """POST /form redirects unauthenticated users to /login."""
+        response = client.post("/form", data={"logP": "3.0"})
+        assert response.status_code == 200
+        assert b"Log In" in response.content or b"login" in response.content.lower()
