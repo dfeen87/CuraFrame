@@ -100,8 +100,8 @@ POPULATION_MODIFIERS = {
 
 st.title("🧬 CuraFrame — Constraint Evaluation Console")
 st.caption(
-    "Constraint-driven reasoning only. "
-    "**No generation. No optimization. No clinical decision support.**"
+    "Reasoning Systems Should Know Their Limits "
+    "**No generation. Design Fails Here — Safely. Clarity Through Constraint**"
 )
 
 st.markdown("---")
