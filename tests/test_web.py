@@ -525,6 +525,57 @@ class TestAllBundlesForm:
                       b"CardiAnx", b"Oncology", b"Anti-Infective", b"Metabolic"]:
             assert label in body
 
+    def test_form_post_persists_submission_to_db(self, tmp_path):
+        """POST /form must save a row to the form_submissions table."""
+        import sqlite3
+        from apps.web.main import create_app
+        from fastapi.testclient import TestClient
+
+        db_path = str(tmp_path / "form_test.db")
+        application = create_app(db_path=db_path)
+        c = TestClient(application, follow_redirects=True)
+        c.post("/register", data={"username": "u1", "email": "u1@x.com", "password": "password1"})
+        c.post("/login", data={"username": "u1", "password": "password1"})
+        c.post("/form", data={"logP": "2.5", "hERG_IC50": "15.0"})
+
+        conn = sqlite3.connect(db_path)
+        rows = conn.execute("SELECT username, logP, results_json FROM form_submissions").fetchall()
+        conn.close()
+        assert len(rows) == 1
+        assert rows[0][0] == "u1"
+        assert rows[0][1] == 2.5
+        assert "core-safety" in rows[0][2].lower() or "Core Safety" in rows[0][2]
+
+    def test_form_submissions_are_per_user(self, tmp_path):
+        """Each user's submissions are stored independently."""
+        import sqlite3
+        from apps.web.main import create_app
+        from fastapi.testclient import TestClient
+
+        db_path = str(tmp_path / "form_multi.db")
+        application = create_app(db_path=db_path)
+
+        c1 = TestClient(application, follow_redirects=True)
+        c1.post("/register", data={"username": "ua", "email": "ua@x.com", "password": "password1"})
+        c1.post("/login", data={"username": "ua", "password": "password1"})
+        c1.post("/form", data={"logP": "1.0"})
+
+        c2 = TestClient(application, follow_redirects=True)
+        c2.post("/register", data={"username": "ub", "email": "ub@x.com", "password": "password1"})
+        c2.post("/login", data={"username": "ub", "password": "password1"})
+        # user b has not submitted the form
+
+        conn = sqlite3.connect(db_path)
+        ua_rows = conn.execute(
+            "SELECT username FROM form_submissions WHERE username=?", ("ua",)
+        ).fetchall()
+        ub_rows = conn.execute(
+            "SELECT username FROM form_submissions WHERE username=?", ("ub",)
+        ).fetchall()
+        conn.close()
+        assert len(ua_rows) == 1
+        assert len(ub_rows) == 0
+
     def test_form_post_redirects_unauthenticated(self, client):
         """POST /form redirects unauthenticated users to /login."""
         response = client.post("/form", data={"logP": "3.0"})

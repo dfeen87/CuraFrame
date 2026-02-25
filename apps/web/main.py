@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import os
 import secrets
 import sqlite3
@@ -93,6 +94,27 @@ def _init_db(db_path: str = DB_PATH) -> None:
             plasma_half_life      REAL,
             bundle                TEXT,
             status                TEXT
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS form_submissions (
+            id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+            username                TEXT    NOT NULL,
+            timestamp               TEXT    NOT NULL,
+            logP                    REAL,
+            hERG_IC50               REAL,
+            beta1_selectivity       REAL,
+            molecular_weight        REAL,
+            polar_surface_area      REAL,
+            hydrogen_bond_donors    REAL,
+            hydrogen_bond_acceptors REAL,
+            Kd_5HT1A                REAL,
+            Kd_5HT2A                REAL,
+            Kd_D2                   REAL,
+            plasma_half_life        REAL,
+            results_json            TEXT
         )
         """
     )
@@ -394,6 +416,41 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
                 "form.html",
                 {"user": user, "results": None, "error": str(exc), "values": values},
             )
+
+        # Persist the submission and its results to the database
+        results_json = json.dumps([
+            {"bundle": r["label"], "status": r["status"],
+             "violations": [
+                 {"constraint": v.constraint, "observed": v.observed,
+                  "threshold": v.threshold, "severity": v.severity.value}
+                 for v in r["violations"]
+             ]}
+            for r in results
+        ])
+        conn = _get_connection(resolved_db)
+        conn.execute(
+            """
+            INSERT INTO form_submissions (
+                username, timestamp,
+                logP, hERG_IC50, beta1_selectivity,
+                molecular_weight, polar_surface_area,
+                hydrogen_bond_donors, hydrogen_bond_acceptors,
+                Kd_5HT1A, Kd_5HT2A, Kd_D2, plasma_half_life,
+                results_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user,
+                datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+                logP, hERG_IC50, beta1_selectivity,
+                molecular_weight, polar_surface_area,
+                hydrogen_bond_donors, hydrogen_bond_acceptors,
+                Kd_5HT1A, Kd_5HT2A, Kd_D2, plasma_half_life,
+                results_json,
+            ),
+        )
+        conn.commit()
+        conn.close()
 
         return templates.TemplateResponse(
             request,
