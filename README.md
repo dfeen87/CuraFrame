@@ -111,14 +111,26 @@ CuraFrame/
 │   ├── core.py                  # Constraint evaluation engine
 │   ├── comparators.py           # Pure comparison semantics
 │   ├── constraints_library.py   # Canonical constraint definitions
-│   └── tests/
-│       └── test_core.py         # Enforcement & regression tests
+│   └── cli.py                   # Command-line interface
 │
-├── apps/
-│   └── console_streamlit/       # Presentation layer
-│       ├── app.py               # Streamlit UI
-│       ├── __init__.py          # Package metadata
-│       └── __main__.py          # Module launcher
+├── apps/                        # Application interfaces
+│   ├── __init__.py              # Package metadata
+│   ├── __main__.py              # Module launcher
+│   ├── console_streamlit/       # Streamlit interactive console
+│   │   └── app.py               # Constraint evaluation UI
+│   └── web/                     # FastAPI web application
+│       ├── __init__.py
+│       ├── main.py              # Routes, authentication, calculator
+│       └── templates/           # Jinja2 HTML templates
+│
+├── pipelayer/                   # Heavy machinery governance domain
+│   ├── __init__.py
+│   ├── pipelayer.py             # PipelayerGovernor and telemetry types
+│   └── test_pipelayer_usage.py
+│
+├── tests/                       # Test suite
+│   ├── test_core.py             # Core engine, CLI, and constraint tests
+│   └── test_web.py              # Web application tests
 │
 ├── docs/                        # Constitutional documentation
 │   ├── PHILOSOPHY.md            # Core principles
@@ -128,10 +140,15 @@ CuraFrame/
 │   ├── ETHICAL_USE.md           # Usage constraints
 │   └── INSPIRATION.md           # Scientific origins
 │
-├── launch_console.py            # Root-level UI launcher
+├── launch_console.py            # Root-level Streamlit launcher
+├── render.yaml                  # Render.com deployment configuration
+├── requirements.txt             # Python dependencies
+├── setup.py                     # Package setup script
+├── pyproject.toml               # Build configuration
+├── pytest.ini                   # Test configuration
+├── CITATION.cff                 # Software citation metadata
 ├── README.md                    # This file
-├── LICENSE                      # MIT License
-└── pyproject.toml               # Package configuration
+└── LICENSE                      # MIT License
 ```
 
 ### Architectural Intent
@@ -140,7 +157,10 @@ CuraFrame/
   It contains no UI code and no external tooling assumptions.
 
 - **`apps/`** is the presentation layer  
-  It visualizes reasoning but does not influence it.
+  It contains both the Streamlit interactive console (`console_streamlit/`) and the FastAPI web application (`web/`). Neither influences core reasoning.
+
+- **`pipelayer/`** is a separate governance domain  
+  It demonstrates CuraFrame's AILEE trust pipeline applied to heavy machinery (sideboom pipelayer) safety decisions.
 
 - **`docs/`** are constitutional  
   They define scope, ethics, limits, and philosophy.
@@ -210,9 +230,18 @@ pip install -e .
 
 ### Optional Dependencies
 
-For the interactive Streamlit console:
+Install all application dependencies (Streamlit console, FastAPI web app) at once:
 ```bash
+pip install -r requirements.txt
+```
+
+Or selectively:
+```bash
+# For the interactive Streamlit console
 pip install streamlit
+
+# For the FastAPI web application
+pip install fastapi uvicorn[standard] jinja2 python-multipart
 ```
 
 For development and testing:
@@ -224,7 +253,7 @@ pip install pytest
 
 Verify installation by running the test suite:
 ```bash
-pytest cura_frame/tests
+pytest tests/
 ```
 
 ---
@@ -261,12 +290,11 @@ result = framework.evaluate(candidate)
 # Interpret results
 if result.is_accepted():
     print("✓ Candidate satisfies all constraints")
-    print(f"  Evaluated: {len(result.constraints_evaluated)} constraints")
 else:
     print("✗ Constraint violations detected:")
     for violation in result.violations:
         print(f"  [{violation.severity}] {violation.constraint}")
-        print(f"    Observed: {violation.observed_value}")
+        print(f"    Observed: {violation.observed}")
         print(f"    Required: {violation.threshold}")
         print(f"    Rationale: {violation.rationale}\n")
 ```
@@ -277,8 +305,6 @@ else:
 - Each violation includes severity classification, observed vs. required values, and scientific rationale
 
 ---
-
-### Command-Line Interface (CLI)
 
 ### Command-Line Interface (CLI)
 
@@ -333,18 +359,73 @@ python launch_console.py
 
 # Or directly
 streamlit run apps/console_streamlit/app.py
-
-# Or as a module
-python -m apps.console_streamlit
 ```
 
 The console allows you to:
 
 - Select constraint bundles (Core Safety, CNS, Cardiology, CardiAnx-1, etc.)
-- Define hypothetical candidates via JSON
+- Define hypothetical candidates via JSON or a form-based calculator
 - Apply population modifiers
 - View detailed violations and warnings
 - Export results and constraint metadata
+
+---
+
+### Using the FastAPI Web Application
+
+CuraFrame also ships a full web application (`apps/web/`) built with FastAPI. It includes user registration, login, a dashboard, and an interactive constraint calculator.
+
+Run it locally:
+```bash
+uvicorn apps.web.main:app --host 0.0.0.0 --port 8000
+```
+
+Or deploy to Render.com using the included `render.yaml`:
+```bash
+# Render reads render.yaml automatically on connect
+# Start command: uvicorn apps.web.main:app --host 0.0.0.0 --port $PORT
+```
+
+Routes:
+- `GET /` → redirects to `/dashboard` (authenticated) or `/login`
+- `GET/POST /register` → user registration
+- `GET/POST /login` → authentication
+- `GET /dashboard` → evaluation dashboard (requires login)
+- `GET/POST /calculator` → constraint calculator (requires login)
+- `GET /logout` → session logout
+
+---
+
+### Pipelayer Domain Module
+
+The `pipelayer/` package demonstrates the AILEE trust pipeline applied to a completely different safety-critical domain: **sideboom pipelayer machines** used in pipeline construction.
+
+`PipelayerGovernor` evaluates machine telemetry (tipping moments, hydraulic pressure, engine temperature), environmental conditions (wind speed, ground slope, soil stability), and operator fatigue to produce governance decisions (`PROCEED_NORMAL`, `WARN_OPERATOR`, `HALT_IMMEDIATELY`, etc.).
+
+```python
+from pipelayer.pipelayer import PipelayerGovernor, PipelayerSignals, MachineTelemetry, SiteConditions, OperationMode
+
+governor = PipelayerGovernor()
+signals = PipelayerSignals(
+    operation_trust_score=0.90,
+    measurement_reliability=0.85,
+    machine_telemetry=MachineTelemetry(
+        load_kg=18000, boom_angle_deg=45, counterweight_position_pct=60,
+        engine_rpm=1800, engine_temp_c=85, hydraulic_pressure_bar=200,
+        tipping_moment_pct=70, load_moment_pct=80,
+    ),
+    site_conditions=SiteConditions(
+        wind_speed_kmh=20, ambient_temp_c=15, visibility_m=1000,
+        ground_slope_pitch_deg=5, ground_slope_roll_deg=3,
+        soil_stability_index=0.8,
+    ),
+    operation_mode=OperationMode.LIFTING,
+)
+result = governor.evaluate(signals)
+print(result.decision_outcome)  # e.g. PROCEED_NORMAL
+```
+
+This module is self-contained and does not depend on `cura_frame`. See `pipelayer/test_pipelayer_usage.py` for usage examples.
 
 ---
 
@@ -423,7 +504,7 @@ if not result_asthmatic.is_accepted():
     print("\n⚠ REJECTED for asthmatic population:")
     for violation in result_asthmatic.violations:
         if "selectivity" in violation.constraint.lower():
-            print(f"  β₁/β₂ selectivity: {violation.observed_value}× (required: {violation.threshold}×)")
+            print(f"  β₁/β₂ selectivity: {violation.observed}× (required: {violation.threshold}×)")
             print(f"  Rationale: {violation.rationale}")
 ```
 
@@ -513,21 +594,19 @@ if not result_asthmatic.is_accepted():
 
 ## Testing and Validation
 
-## Testing and Validation
-
 ### Unit Testing
 
 CuraFrame employs comprehensive unit tests to ensure constraint evaluation correctness:
 
 ```bash
 # Run all tests
-pytest cura_frame/tests
+pytest tests/
 
 # Run with coverage report
-pytest cura_frame/tests --cov=cura_frame --cov-report=term-missing
+pytest tests/ --cov=cura_frame --cov-report=term-missing
 
 # Run specific test modules
-pytest cura_frame/tests/test_core.py -v
+pytest tests/test_core.py -v
 ```
 
 **Test Coverage Areas**:
