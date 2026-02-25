@@ -11,7 +11,7 @@
     Missing properties are skipped (non-strict mode).
   </p>
 
-  <form method="post" action="/calculator">
+  <form id="calculator-form" method="post" action="/calculator">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
       <div class="form-group">
         <label for="logP">logP</label>
@@ -47,13 +47,16 @@
         </select>
       </div>
     </div>
+  </form>
 
-    <button type="submit" class="btn btn-primary" style="margin-top:.5rem">
+  <div style="display:flex;gap:.5rem;margin-top:.5rem;align-items:center">
+    <button type="submit" form="calculator-form" class="btn btn-primary">
       🔍 Evaluate
     </button>
-    <button type="button" class="btn btn-secondary" style="margin-left:.5rem"
-            onclick="location.href='/calculator'">Reset</button>
-  </form>
+    <form method="get" action="/calculator">
+      <button type="submit" class="btn btn-secondary">Reset</button>
+    </form>
+  </div>
 </div>
 
 {% if error %}
