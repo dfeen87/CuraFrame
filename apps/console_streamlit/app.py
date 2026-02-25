@@ -244,13 +244,6 @@ st.header("📝 Candidate Definition")
 if input_mode == "Calculator":
     st.caption("Enter candidate properties below. Fields are derived from the selected constraint bundle.")
 
-    # Reset Button for Calculator
-    if st.button("🔄 Reset Calculator"):
-        for key in list(st.session_state.keys()):
-            if key.startswith("calc_"):
-                del st.session_state[key]
-        st.rerun()
-
     # Dynamic Form Generation
     constraints = bundle_info["fn"]()
     property_names = sorted(list(set(c.name for c in constraints)))

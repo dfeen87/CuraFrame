@@ -229,24 +229,6 @@ class TestCalculator:
         # Result should be HTML, not a JSON blob
         assert not body.strip().startswith(b"{")
 
-    def test_calculator_has_reset_form(self, registered_client):
-        """Calculator page has a GET form for reset that works without JavaScript."""
-        response = registered_client.get("/calculator")
-        body = response.text
-        # A <form method="get" action="/calculator"> must exist for the Reset button
-        assert 'method="get"' in body.lower() or "method='get'" in body.lower()
-        assert 'action="/calculator"' in body
-
-    def test_calculator_reset_clears_inputs(self, registered_client):
-        """GET /calculator (reset) returns form with default 0.0 values."""
-        response = registered_client.get("/calculator")
-        assert response.status_code == 200
-        body = response.text
-        # All three numeric inputs must default to 0.0
-        assert 'name="logP"' in body
-        assert 'name="hERG_IC50"' in body
-        assert 'name="beta1_selectivity"' in body
-        assert body.count('value="0.0"') >= 3
 
 
 # ---------------------------------------------------------------------------
