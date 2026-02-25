@@ -1,7 +1,10 @@
 services:
   - type: web
-    name: curaframe-console
+    name: curaframe-web
     env: python
     buildCommand: pip install -r requirements.txt && pip install -e .
-    startCommand: python -m streamlit run apps/console_streamlit/app.py --server.port $PORT --server.address 0.0.0.0
+    startCommand: uvicorn apps.web.main:app --host 0.0.0.0 --port $PORT
     plan: free
+    envVars:
+      - key: CURAFRAME_DB
+        value: /opt/render/project/src/curaframe.db

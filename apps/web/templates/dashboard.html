@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — CuraFrame{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom:1.5rem">👋 Welcome, {{ user }}</h1>
+
+<div class="grid">
+  <div class="feature-card">
+    <div class="icon">🧮</div>
+    <h3>Calculator</h3>
+    <p>Enter candidate properties and evaluate them against safety constraint bundles.</p>
+    <a href="/calculator" class="btn btn-primary">Open Calculator</a>
+  </div>
+
+  <div class="feature-card">
+    <div class="icon">🧬</div>
+    <h3>Full Console</h3>
+    <p>Advanced constraint evaluation with population stratification, JSON input and export.</p>
+    <a href="https://curaframe-console.onrender.com" target="_blank" rel="noopener" class="btn btn-secondary">Open Console ↗</a>
+  </div>
+
+  <div class="feature-card">
+    <div class="icon">📋</div>
+    <h3>Constraint Bundles</h3>
+    <p>Available bundles: Core Safety, Lipinski Ro5, CNS, Cardiology, CardiAnx.</p>
+    <a href="/calculator" class="btn btn-secondary">Evaluate Now</a>
+  </div>
+</div>
+
+<div class="card" style="margin-top:2rem">
+  <h2>About CuraFrame</h2>
+  <p style="line-height:1.7;color:#475569">
+    CuraFrame is a <strong>constraint-driven reasoning framework</strong> for safe, systems-level
+    therapeutic design exploration. It evaluates candidates against explicit safety and design
+    boundaries — it does <em>not</em> generate molecules, optimise properties, or provide clinical
+    recommendations.
+  </p>
+</div>
+{% endblock %}
