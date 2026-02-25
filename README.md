@@ -845,6 +845,7 @@ Thank you to the scientific community for establishing the knowledge base that C
 
 - **Google Jules**: Interactive dashboard, calculator interface, and deployment configuration.
 - **Google Jules**: Pipelayer domain implementation.
+- **Claude Sonnet (Anthropic)**: AILEE pipeline review and hardening — replaced the non-deterministic mock trust pipeline with a deterministic composite-confidence implementation (stability × agreement × likelihood weighting, grace logic, safe-stop fallback); added structured audit event logging to `PipelayerGovernor`; fixed import path and indentation issues in `pipelayer.py`; replaced `random.uniform()` AILEE trust score in the Streamlit dashboard with a reproducible severity-weighted calculation; added plain-text summary download button for easy log export and sharing.
 
 ---
 

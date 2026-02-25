@@ -380,11 +380,21 @@ if evaluate_button:
         st.markdown("---")
         st.header("📊 Evaluation Results")
 
-        # AILEE Trust Score
+        # AILEE Trust Score (deterministic: based on violation severity & constraint confidence)
         if use_ailee:
-            import random
-            trust_score = random.uniform(0.85, 0.99) if result.status == EvaluationStatus.ACCEPTED else random.uniform(0.15, 0.45)
-            st.info(f"🛡️ **AILEE Trust Score:** {trust_score:.2f} — Validated with 95% confidence")
+            if result.status == EvaluationStatus.ACCEPTED:
+                # High confidence when accepted — weighted by lowest constraint confidence
+                min_conf = min(
+                    (v.confidence for v in result.violations), default=1.0
+                ) if result.violations else 1.0
+                trust_score = 0.85 + 0.14 * min_conf
+            else:
+                # Lower trust when violations exist — penalise by violation count & severity
+                critical_count = sum(
+                    1 for v in result.violations if v.severity == Severity.CRITICAL
+                )
+                trust_score = max(0.10, 0.50 - 0.10 * critical_count)
+            st.info(f"🛡️ **AILEE Trust Score:** {trust_score:.2f} — Deterministic confidence estimate")
 
         # Status banner
         status_color = {
@@ -479,16 +489,25 @@ if evaluate_button:
             }
 
             st.download_button(
-                "Download Results (JSON)",
+                "⬇️ Download Results (JSON)",
                 data=json.dumps(export_data, indent=2),
                 file_name=f"curaframe_result_{cand.name}.json",
                 mime="application/json",
                 use_container_width=True
             )
 
+            # Export summary as plain text (easy log sharing)
+            st.download_button(
+                "⬇️ Download Summary (Text)",
+                data=result.summary(),
+                file_name=f"curaframe_summary_{cand.name}.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+
             # Export constraint metadata
             st.download_button(
-                "Download Constraints (JSON)",
+                "⬇️ Download Constraints (JSON)",
                 data=json.dumps(cura.export_constraints(), indent=2),
                 file_name=f"curaframe_constraints_{bundle_name}.json",
                 mime="application/json",
