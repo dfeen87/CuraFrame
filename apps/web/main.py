@@ -23,6 +23,7 @@ import json
 import os
 import secrets
 import sqlite3
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -31,15 +32,22 @@ from fastapi import Cookie, FastAPI, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+try:
+    import psycopg
+except ImportError:  # pragma: no cover - optional dependency at runtime
+    psycopg = None
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 
 _TEMPLATE_DIR = Path(__file__).parent / "templates"
 
-# Database path – override via CURAFRAME_DB env variable (useful in tests)
+# Database path – override via CURAFRAME_DATABASE_URL (PostgreSQL) or CURAFRAME_DB (SQLite)
 _DEFAULT_DB = Path(__file__).parent.parent.parent / "curaframe.db"
-DB_PATH = os.environ.get("CURAFRAME_DB", str(_DEFAULT_DB))
+DB_PATH = os.environ.get("CURAFRAME_DATABASE_URL") or os.environ.get(
+    "CURAFRAME_DB", str(_DEFAULT_DB)
+)
 
 # Set to "1"/"true"/"yes" in production (HTTPS) to mark the session cookie secure
 _SECURE_COOKIES = os.environ.get("CURAFRAME_SECURE_COOKIES", "0").lower() in (
@@ -56,68 +64,185 @@ _PBKDF2_ITERATIONS = 260_000
 # Database helpers
 # ---------------------------------------------------------------------------
 
-def _get_connection(db_path: str = DB_PATH) -> sqlite3.Connection:
+def _is_postgres(db_path: str) -> bool:
+    return db_path.startswith("postgresql://") or db_path.startswith("postgres://")
+
+
+def _get_connection(db_path: str = DB_PATH):
+    if _is_postgres(db_path):
+        if psycopg is None:
+            raise RuntimeError(
+                "PostgreSQL connection requested but psycopg is not installed. "
+                "Install it with `pip install psycopg[binary]`."
+            )
+        return psycopg.connect(db_path)
+
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn
 
 
+def _adapt_query(query: str, db_path: str) -> str:
+    if _is_postgres(db_path):
+        return query.replace("?", "%s")
+    return query
+
+
+def _execute(conn, db_path: str, query: str, params: tuple = ()):
+    if _is_postgres(db_path):
+        with closing(conn.cursor()) as cur:
+            cur.execute(_adapt_query(query, db_path), params)
+            return cur.rowcount
+    return conn.execute(query, params)
+
+
+def _fetchone(conn, db_path: str, query: str, params: tuple = ()):
+    if _is_postgres(db_path):
+        with closing(conn.cursor()) as cur:
+            cur.execute(_adapt_query(query, db_path), params)
+            row = cur.fetchone()
+            if row is None:
+                return None
+            columns = [desc.name for desc in cur.description]
+            return dict(zip(columns, row))
+
+    return conn.execute(query, params).fetchone()
+
+
+def _fetchall(conn, db_path: str, query: str, params: tuple = ()):
+    if _is_postgres(db_path):
+        with closing(conn.cursor()) as cur:
+            cur.execute(_adapt_query(query, db_path), params)
+            rows = cur.fetchall()
+            columns = [desc.name for desc in cur.description]
+            return [dict(zip(columns, row)) for row in rows]
+
+    return conn.execute(query, params).fetchall()
+
+
 def _init_db(db_path: str = DB_PATH) -> None:
     """Create the users and logs tables if they do not already exist."""
     conn = _get_connection(db_path)
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS users (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
-            username      TEXT    UNIQUE NOT NULL,
-            email         TEXT    UNIQUE NOT NULL,
-            password_hash TEXT           NOT NULL
+    if _is_postgres(db_path):
+        _execute(
+            conn,
+            db_path,
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id            BIGSERIAL PRIMARY KEY,
+                username      TEXT UNIQUE NOT NULL,
+                email         TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL
+            )
+            """,
         )
-        """
-    )
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS logs (
-            id                    INTEGER PRIMARY KEY AUTOINCREMENT,
-            username              TEXT    NOT NULL,
-            timestamp             TEXT    NOT NULL,
-            logP                  REAL,
-            hERG_IC50             REAL,
-            beta1_selectivity     REAL,
-            molecular_weight      REAL,
-            polar_surface_area    REAL,
-            hydrogen_bond_donors  REAL,
-            hydrogen_bond_acceptors REAL,
-            Kd_5HT1A              REAL,
-            Kd_5HT2A              REAL,
-            Kd_D2                 REAL,
-            plasma_half_life      REAL,
-            bundle                TEXT,
-            status                TEXT
+        _execute(
+            conn,
+            db_path,
+            """
+            CREATE TABLE IF NOT EXISTS logs (
+                id                      BIGSERIAL PRIMARY KEY,
+                username                TEXT NOT NULL,
+                timestamp               TEXT NOT NULL,
+                logP                    DOUBLE PRECISION,
+                hERG_IC50               DOUBLE PRECISION,
+                beta1_selectivity       DOUBLE PRECISION,
+                molecular_weight        DOUBLE PRECISION,
+                polar_surface_area      DOUBLE PRECISION,
+                hydrogen_bond_donors    DOUBLE PRECISION,
+                hydrogen_bond_acceptors DOUBLE PRECISION,
+                Kd_5HT1A                DOUBLE PRECISION,
+                Kd_5HT2A                DOUBLE PRECISION,
+                Kd_D2                   DOUBLE PRECISION,
+                plasma_half_life        DOUBLE PRECISION,
+                bundle                  TEXT,
+                status                  TEXT
+            )
+            """,
         )
-        """
-    )
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS form_submissions (
-            id                      INTEGER PRIMARY KEY AUTOINCREMENT,
-            username                TEXT    NOT NULL,
-            timestamp               TEXT    NOT NULL,
-            logP                    REAL,
-            hERG_IC50               REAL,
-            beta1_selectivity       REAL,
-            molecular_weight        REAL,
-            polar_surface_area      REAL,
-            hydrogen_bond_donors    REAL,
-            hydrogen_bond_acceptors REAL,
-            Kd_5HT1A                REAL,
-            Kd_5HT2A                REAL,
-            Kd_D2                   REAL,
-            plasma_half_life        REAL,
-            results_json            TEXT
+        _execute(
+            conn,
+            db_path,
+            """
+            CREATE TABLE IF NOT EXISTS form_submissions (
+                id                      BIGSERIAL PRIMARY KEY,
+                username                TEXT NOT NULL,
+                timestamp               TEXT NOT NULL,
+                logP                    DOUBLE PRECISION,
+                hERG_IC50               DOUBLE PRECISION,
+                beta1_selectivity       DOUBLE PRECISION,
+                molecular_weight        DOUBLE PRECISION,
+                polar_surface_area      DOUBLE PRECISION,
+                hydrogen_bond_donors    DOUBLE PRECISION,
+                hydrogen_bond_acceptors DOUBLE PRECISION,
+                Kd_5HT1A                DOUBLE PRECISION,
+                Kd_5HT2A                DOUBLE PRECISION,
+                Kd_D2                   DOUBLE PRECISION,
+                plasma_half_life        DOUBLE PRECISION,
+                results_json            TEXT
+            )
+            """,
         )
-        """
-    )
+    else:
+        _execute(
+            conn,
+            db_path,
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                username      TEXT    UNIQUE NOT NULL,
+                email         TEXT    UNIQUE NOT NULL,
+                password_hash TEXT           NOT NULL
+            )
+            """,
+        )
+        _execute(
+            conn,
+            db_path,
+            """
+            CREATE TABLE IF NOT EXISTS logs (
+                id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+                username              TEXT    NOT NULL,
+                timestamp             TEXT    NOT NULL,
+                logP                  REAL,
+                hERG_IC50             REAL,
+                beta1_selectivity     REAL,
+                molecular_weight      REAL,
+                polar_surface_area    REAL,
+                hydrogen_bond_donors  REAL,
+                hydrogen_bond_acceptors REAL,
+                Kd_5HT1A              REAL,
+                Kd_5HT2A              REAL,
+                Kd_D2                 REAL,
+                plasma_half_life      REAL,
+                bundle                TEXT,
+                status                TEXT
+            )
+            """,
+        )
+        _execute(
+            conn,
+            db_path,
+            """
+            CREATE TABLE IF NOT EXISTS form_submissions (
+                id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+                username                TEXT    NOT NULL,
+                timestamp               TEXT    NOT NULL,
+                logP                    REAL,
+                hERG_IC50               REAL,
+                beta1_selectivity       REAL,
+                molecular_weight        REAL,
+                polar_surface_area      REAL,
+                hydrogen_bond_donors    REAL,
+                hydrogen_bond_acceptors REAL,
+                Kd_5HT1A                REAL,
+                Kd_5HT2A                REAL,
+                Kd_D2                   REAL,
+                plasma_half_life        REAL,
+                results_json            TEXT
+            )
+            """,
+        )
     conn.commit()
     conn.close()
 
@@ -428,7 +553,9 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
             for r in results
         ])
         conn = _get_connection(resolved_db)
-        conn.execute(
+        _execute(
+            conn,
+            resolved_db,
             """
             INSERT INTO form_submissions (
                 username, timestamp,
@@ -483,7 +610,9 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
             return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
 
         conn = _get_connection(resolved_db)
-        conn.execute(
+        _execute(
+            conn,
+            resolved_db,
             """
             INSERT INTO logs (
                 username, timestamp,
@@ -520,7 +649,9 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
             return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
 
         conn = _get_connection(resolved_db)
-        rows = conn.execute(
+        rows = _fetchall(
+            conn,
+            resolved_db,
             """
             SELECT id, timestamp,
                    logP, hERG_IC50, beta1_selectivity,
@@ -533,12 +664,13 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
             ORDER BY id DESC
             """,
             (user,),
-        ).fetchall()
+        )
         conn.close()
+        logs = rows if _is_postgres(resolved_db) else [dict(r) for r in rows]
         return templates.TemplateResponse(
             request,
             "logs.html",
-            {"user": user, "logs": [dict(r) for r in rows]},
+            {"user": user, "logs": logs},
         )
 
     # ---- Register --------------------------------------------------------
@@ -573,13 +705,19 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
             )
 
         conn = _get_connection(resolved_db)
+        integrity_errors = (sqlite3.IntegrityError,)
+        if _is_postgres(resolved_db) and psycopg is not None:
+            integrity_errors = (sqlite3.IntegrityError, psycopg.IntegrityError)
+
         try:
-            conn.execute(
+            _execute(
+                conn,
+                resolved_db,
                 "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
                 (username.strip(), email.strip(), _hash_password(password)),
             )
             conn.commit()
-        except sqlite3.IntegrityError:
+        except integrity_errors:
             conn.close()
             return templates.TemplateResponse(
                 request,
@@ -606,10 +744,12 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
         password: str = Form(...),
     ):
         conn = _get_connection(resolved_db)
-        row = conn.execute(
+        row = _fetchone(
+            conn,
+            resolved_db,
             "SELECT username, password_hash FROM users WHERE username = ?",
             (username.strip(),),
-        ).fetchone()
+        )
         conn.close()
 
         if row is None or not _verify_password(password, row["password_hash"]):
