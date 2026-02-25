@@ -130,17 +130,6 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # Input Mode
-    st.subheader("Input Method")
-    input_mode = st.radio(
-        "Mode",
-        ["Calculator", "JSON"],
-        index=0,
-        help="Choose between form-based calculator or raw JSON input"
-    )
-
-    st.markdown("---")
-
     # Evaluation mode
     st.subheader("Evaluation Mode")
     strict = st.toggle(
@@ -179,61 +168,6 @@ with st.sidebar:
         help="Enable AILEE Trust Layer for deterministic evaluation confidence"
     )
 
-    if input_mode == "JSON":
-        st.markdown("---")
-        # File upload only in JSON mode
-        st.subheader("📄 Upload Candidate")
-        uploaded = st.file_uploader(
-            "Upload JSON file",
-            type=["json"],
-            help="Upload a candidate definition in JSON format"
-        )
-    else:
-        uploaded = None
-
-
-# -----------------------------
-# Example candidates
-# -----------------------------
-
-EXAMPLES = {
-    "Safe (passes core safety)": {
-        "name": "safe_example",
-        "properties": {
-            "logP": 3.0,
-            "hERG_IC50": 20.0,
-            "beta1_selectivity": 150.0
-        },
-        "provenance": "example"
-    },
-    "Unsafe (hERG violation)": {
-        "name": "unsafe_hERG",
-        "properties": {
-            "logP": 3.0,
-            "hERG_IC50": 5.0,  # CRITICAL violation
-            "beta1_selectivity": 150.0
-        },
-        "provenance": "example"
-    },
-    "CardiAnx-1 Template": {
-        "name": "CardiAnx_template",
-        "properties": {
-            "logP": 3.2,
-            "polar_surface_area": 75.0,
-            "molecular_weight": 485.0,
-            "hydrogen_bond_donors": 2,
-            "hydrogen_bond_acceptors": 6,
-            "hERG_IC50": 15.0,
-            "beta1_selectivity": 170.0,
-            "Kd_5HT1A": 12.0,
-            "Kd_5HT2A": 650.0,
-            "Kd_D2": 1200.0,
-            "plasma_half_life": 12.0
-        },
-        "provenance": "CardiAnx-1_design_space"
-    }
-}
-
 
 # -----------------------------
 # Main interface: Input
@@ -241,87 +175,40 @@ EXAMPLES = {
 
 st.header("📝 Candidate Definition")
 
-if input_mode == "Calculator":
-    st.caption("Enter candidate properties below. Fields are derived from the selected constraint bundle.")
+st.caption("Enter candidate properties below. Fields are derived from the selected constraint bundle.")
 
-    # Reset Button for Calculator
-    if st.button("🔄 Reset Calculator"):
-        for key in list(st.session_state.keys()):
-            if key.startswith("calc_"):
-                del st.session_state[key]
-        st.rerun()
+# Reset Button for Calculator
+if st.button("🔄 Reset Calculator"):
+    for key in list(st.session_state.keys()):
+        if key.startswith("calc_"):
+            del st.session_state[key]
+    st.rerun()
 
-    # Dynamic Form Generation
-    constraints = bundle_info["fn"]()
-    property_names = sorted(list(set(c.name for c in constraints)))
+# Dynamic Form Generation
+constraints = bundle_info["fn"]()
+property_names = sorted(list(set(c.name for c in constraints)))
 
-    form_properties = {}
+form_properties = {}
 
-    cols = st.columns(2)
-    for i, prop in enumerate(property_names):
-        col = cols[i % 2]
-        with col:
-            val = st.number_input(
-                f"{prop}",
-                key=f"calc_{prop}",
-                value=0.0,
-                format="%.2f"
-            )
-            form_properties[prop] = val
-
-    # Construct JSON from form
-    candidate_dict = {
-        "name": "calculator_candidate",
-        "properties": form_properties,
-        "provenance": "user_input_calculator"
-    }
-    candidate_text = json.dumps(candidate_dict, indent=2)
-
-else:
-    # JSON Mode
-    col_example, col_input = st.columns([1, 3])
-
-    with col_example:
-        st.subheader("Examples")
-        example_choice = st.radio(
-            "Load example",
-            list(EXAMPLES.keys()),
-            label_visibility="collapsed"
+cols = st.columns(2)
+for i, prop in enumerate(property_names):
+    col = cols[i % 2]
+    with col:
+        val = st.number_input(
+            f"{prop}",
+            key=f"calc_{prop}",
+            value=0.0,
+            format="%.2f"
         )
+        form_properties[prop] = val
 
-        if st.button("Load Example"):
-            st.session_state['candidate_json'] = json.dumps(
-                EXAMPLES[example_choice],
-                indent=2
-            )
-
-    with col_input:
-        # Check if uploaded file exists
-        if uploaded is not None:
-            try:
-                candidate_text = uploaded.read().decode("utf-8")
-                st.success(f"Loaded: {uploaded.name}")
-            except Exception as e:
-                st.error(f"Could not read uploaded file: {e}")
-                candidate_text = st.session_state.get(
-                    'candidate_json',
-                    json.dumps(EXAMPLES["Safe (passes core safety)"], indent=2)
-                )
-        else:
-            candidate_text = st.session_state.get(
-                'candidate_json',
-                json.dumps(EXAMPLES["Safe (passes core safety)"], indent=2)
-            )
-
-        candidate_text = st.text_area(
-            "Candidate JSON",
-            value=candidate_text,
-            height=300,
-            help="Define candidate properties in JSON format"
-        )
-
-        # Save to session state
-        st.session_state['candidate_json'] = candidate_text
+# Construct JSON from form (internal use only)
+candidate_dict = {
+    "name": "calculator_candidate",
+    "properties": form_properties,
+    "provenance": "user_input_calculator"
+}
+candidate_text = json.dumps(candidate_dict, indent=2)
 
 
 # -----------------------------
@@ -558,6 +445,7 @@ if evaluate_button:
             st.json(cura.export_constraints())
 
     except json.JSONDecodeError as e:
+        # This should theoretically not happen with calculator input unless internal logic breaks
         st.error(f"❌ **Invalid JSON:** {e}")
         st.code(candidate_text, language="json")
 
@@ -605,8 +493,7 @@ with col_usage:
         - Each bundle has different safety/design criteria
 
         **2. Define your candidate** (main panel)
-        - **Calculator mode:** Enter property values directly via form fields
-        - **JSON mode:** Enter properties as JSON, use examples as templates, or upload from file
+        - Enter property values directly via form fields
 
         **3. (Optional) Apply population context**
         - Select patient population if applicable
