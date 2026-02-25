@@ -17,6 +17,7 @@ This application does NOT:
 
 import json
 import streamlit as st
+import urllib.parse
 
 from cura_frame import (
     CuraFrame,
@@ -129,6 +130,17 @@ with st.sidebar:
 
     st.markdown("---")
 
+    # Input Mode
+    st.subheader("Input Method")
+    input_mode = st.radio(
+        "Mode",
+        ["Calculator", "JSON"],
+        index=0,
+        help="Choose between form-based calculator or raw JSON input"
+    )
+
+    st.markdown("---")
+
     # Evaluation mode
     st.subheader("Evaluation Mode")
     strict = st.toggle(
@@ -157,15 +169,17 @@ with st.sidebar:
     else:
         population = None
 
-    st.markdown("---")
-
-    # File upload
-    st.subheader("📄 Upload Candidate")
-    uploaded = st.file_uploader(
-        "Upload JSON file",
-        type=["json"],
-        help="Upload a candidate definition in JSON format"
-    )
+    if input_mode == "JSON":
+        st.markdown("---")
+        # File upload only in JSON mode
+        st.subheader("📄 Upload Candidate")
+        uploaded = st.file_uploader(
+            "Upload JSON file",
+            type=["json"],
+            help="Upload a candidate definition in JSON format"
+        )
+    else:
+        uploaded = None
 
 
 # -----------------------------
@@ -217,49 +231,87 @@ EXAMPLES = {
 
 st.header("📝 Candidate Definition")
 
-col_example, col_input = st.columns([1, 3])
+if input_mode == "Calculator":
+    st.caption("Enter candidate properties below. Fields are derived from the selected constraint bundle.")
 
-with col_example:
-    st.subheader("Examples")
-    example_choice = st.radio(
-        "Load example",
-        list(EXAMPLES.keys()),
-        label_visibility="collapsed"
-    )
+    # Reset Button for Calculator
+    if st.button("🔄 Reset Calculator"):
+        for key in list(st.session_state.keys()):
+            if key.startswith("calc_"):
+                del st.session_state[key]
+        st.rerun()
 
-    if st.button("Load Example"):
-        st.session_state['candidate_json'] = json.dumps(
-            EXAMPLES[example_choice],
-            indent=2
+    # Dynamic Form Generation
+    constraints = bundle_info["fn"]()
+    property_names = sorted(list(set(c.name for c in constraints)))
+
+    form_properties = {}
+
+    cols = st.columns(2)
+    for i, prop in enumerate(property_names):
+        col = cols[i % 2]
+        with col:
+            val = st.number_input(
+                f"{prop}",
+                key=f"calc_{prop}",
+                value=0.0,
+                format="%.2f"
+            )
+            form_properties[prop] = val
+
+    # Construct JSON from form
+    candidate_dict = {
+        "name": "calculator_candidate",
+        "properties": form_properties,
+        "provenance": "user_input_calculator"
+    }
+    candidate_text = json.dumps(candidate_dict, indent=2)
+
+else:
+    # JSON Mode
+    col_example, col_input = st.columns([1, 3])
+
+    with col_example:
+        st.subheader("Examples")
+        example_choice = st.radio(
+            "Load example",
+            list(EXAMPLES.keys()),
+            label_visibility="collapsed"
         )
 
-with col_input:
-    # Check if uploaded file exists
-    if uploaded is not None:
-        try:
-            candidate_text = uploaded.read().decode("utf-8")
-            st.success(f"Loaded: {uploaded.name}")
-        except Exception as e:
-            st.error(f"Could not read uploaded file: {e}")
+        if st.button("Load Example"):
+            st.session_state['candidate_json'] = json.dumps(
+                EXAMPLES[example_choice],
+                indent=2
+            )
+
+    with col_input:
+        # Check if uploaded file exists
+        if uploaded is not None:
+            try:
+                candidate_text = uploaded.read().decode("utf-8")
+                st.success(f"Loaded: {uploaded.name}")
+            except Exception as e:
+                st.error(f"Could not read uploaded file: {e}")
+                candidate_text = st.session_state.get(
+                    'candidate_json',
+                    json.dumps(EXAMPLES["Safe (passes core safety)"], indent=2)
+                )
+        else:
             candidate_text = st.session_state.get(
                 'candidate_json',
                 json.dumps(EXAMPLES["Safe (passes core safety)"], indent=2)
             )
-    else:
-        candidate_text = st.session_state.get(
-            'candidate_json',
-            json.dumps(EXAMPLES["Safe (passes core safety)"], indent=2)
+
+        candidate_text = st.text_area(
+            "Candidate JSON",
+            value=candidate_text,
+            height=300,
+            help="Define candidate properties in JSON format"
         )
 
-    candidate_text = st.text_area(
-        "Candidate JSON",
-        value=candidate_text,
-        height=300,
-        help="Define candidate properties in JSON format"
-    )
-
-    # Save to session state
-    st.session_state['candidate_json'] = candidate_text
+        # Save to session state
+        st.session_state['candidate_json'] = candidate_text
 
 
 # -----------------------------
@@ -342,6 +394,41 @@ if evaluate_button:
         with col_summary:
             st.subheader("Summary")
             st.code(result.summary(), language="text")
+
+            # Email Button
+            subject = f"CuraFrame Result: {cand.name} - {result.status.value.upper()}"
+            body = result.summary()
+
+            # Simple mailto link
+            mailto_link = f"mailto:?subject={urllib.parse.quote(subject)}&body={urllib.parse.quote(body)}"
+
+            st.markdown(
+                f"""
+                <a href="{mailto_link}" target="_blank">
+                    <button style="
+                        display: inline-flex;
+                        -webkit-box-align: center;
+                        align-items: center;
+                        -webkit-box-pack: center;
+                        justify-content: center;
+                        font-weight: 400;
+                        padding: 0.25rem 0.75rem;
+                        border-radius: 0.25rem;
+                        margin: 0px;
+                        line-height: 1.6;
+                        color: rgb(49, 51, 63);
+                        background-color: rgb(255, 255, 255);
+                        width: auto;
+                        border: 1px solid rgba(49, 51, 63, 0.2);
+                        cursor: pointer;
+                        text-decoration: none;
+                    ">
+                    📧 Email Results
+                    </button>
+                </a>
+                """,
+                unsafe_allow_html=True
+            )
 
         with col_export:
             st.subheader("Export")

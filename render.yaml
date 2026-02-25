@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: curaframe-console
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run apps/console_streamlit/app.py
+    plan: free
