@@ -435,20 +435,37 @@ class TestSecurityHeaders:
 
 
 # ---------------------------------------------------------------------------
-# Nav bar Sign In button visibility
+# Three-dots dropdown menu (Sign in / Sign out)
 # ---------------------------------------------------------------------------
 
-class TestSignInButton:
-    def test_sign_in_button_absent_on_login_page(self, client):
-        """Sign In button must NOT appear on the /login page itself."""
+class TestSignInMenu:
+    def test_dropdown_has_sign_in_on_public_page(self, client):
+        """The three-dots dropdown must offer 'Sign in' on public pages."""
         response = client.get("/login")
-        # The nav Sign In anchor should not be rendered on the login page
+        assert b'href="/login"' in response.content
+        assert b'Sign in' in response.content
+
+    def test_dropdown_has_sign_in_on_register_page(self, client):
+        """The three-dots dropdown must offer 'Sign in' on the register page."""
+        response = client.get("/register")
+        assert b'href="/login"' in response.content
+        assert b'Sign in' in response.content
+
+    def test_dropdown_sign_in_not_a_nav_button(self, client):
+        """Sign in must appear as a plain dropdown link, not a btn-primary nav button."""
+        response = client.get("/login")
         assert b'href="/login" class="btn btn-primary btn-sm"' not in response.content
 
-    def test_sign_in_button_absent_on_register_page(self, client):
-        """Sign In button must NOT appear on the /register page."""
-        response = client.get("/register")
-        assert b'href="/login" class="btn btn-primary btn-sm"' not in response.content
+    def test_dropdown_has_sign_out_when_authenticated(self, registered_client):
+        """The three-dots dropdown must offer 'Sign out' when the user is logged in."""
+        response = registered_client.get("/dashboard")
+        assert b'href="/logout"' in response.content
+        assert b'Sign out' in response.content
+
+    def test_dropdown_has_about_item(self, client):
+        """The three-dots dropdown must always show an 'About' item."""
+        response = client.get("/login")
+        assert b'About' in response.content
 
     def test_register_form_has_minlength_8(self, client):
         """Register form password input must declare minlength=8 for client-side enforcement."""
