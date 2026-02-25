@@ -6,3 +6,4 @@ streamlit
 requests
 httpx
 -e .
+psycopg[binary]
