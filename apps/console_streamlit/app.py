@@ -16,7 +16,6 @@ This application does NOT:
 """
 
 import json
-import random
 import streamlit as st
 import urllib.parse
 
@@ -381,10 +380,23 @@ if evaluate_button:
         st.markdown("---")
         st.header("📊 Evaluation Results")
 
-        # AILEE Trust Score (deterministic: based on violation severity & constraint confidence)
+        # AILEE Trust Score (deterministic: based on constraint confidence data)
         if use_ailee:
-            trust_score = random.uniform(0.85, 0.99) if result.status == EvaluationStatus.ACCEPTED else random.uniform(0.15, 0.45)
-            st.info(f"🛡️ **AILEE Trust Score:** {trust_score:.2f} — Validated with 95% confidence")
+            if result.status == EvaluationStatus.ACCEPTED:
+                # Trust bounded by the least-certain constraint (weakest link)
+                confidences = [
+                    c.provenance.confidence if c.provenance else 1.0
+                    for c in cura.safety_constraints
+                ]
+                trust_score = min(confidences) if confidences else 0.0
+            elif result.status == EvaluationStatus.REJECTED:
+                # Trust in rejection based on the most confident violation
+                trust_score = max(
+                    (v.confidence for v in result.violations), default=0.0
+                )
+            else:  # INDETERMINATE
+                trust_score = 0.0
+            st.info(f"🛡️ **AILEE Trust Score:** {trust_score:.2f}")
 
         # Status banner
         status_color = {

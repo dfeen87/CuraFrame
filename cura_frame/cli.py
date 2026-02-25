@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -123,6 +124,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "candidate_json",
         type=Path,
+        nargs="?",
+        default=None,
         help="Path to candidate JSON file",
     )
     parser.add_argument(
@@ -174,25 +177,44 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             print(f"- {bundle}")
         return 0
 
-    candidate = load_candidate_from_json(
-        args.candidate_json,
-        name=args.candidate_name,
-        provenance=args.provenance,
-    )
+    if args.candidate_json is None:
+        parser.error("candidate_json is required when not using --list-bundles")
 
-    result = evaluate_candidate(
-        candidate=candidate,
-        bundle_name=args.bundle,
-        population=args.population,
-        strict=not args.no_strict,
-    )
+    try:
+        candidate = load_candidate_from_json(
+            args.candidate_json,
+            name=args.candidate_name,
+            provenance=args.provenance,
+        )
+    except FileNotFoundError:
+        print(f"Error: file not found: {args.candidate_json}", file=sys.stderr)
+        return 1
+    except (ValueError, json.JSONDecodeError) as e:
+        print(f"Error reading candidate: {e}", file=sys.stderr)
+        return 1
+
+    try:
+        result = evaluate_candidate(
+            candidate=candidate,
+            bundle_name=args.bundle,
+            population=args.population,
+            strict=not args.no_strict,
+        )
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
 
     if args.format == "json":
         print(json.dumps(serialize_result(result), indent=2))
     else:
         print(format_result_text(result))
 
-    return 0
+    _EXIT_CODES = {
+        "accepted": 0,
+        "rejected": 1,
+        "indeterminate": 2,
+    }
+    return _EXIT_CODES.get(result.status.value, 1)
 
 
 if __name__ == "__main__":
