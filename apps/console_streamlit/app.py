@@ -640,5 +640,6 @@ st.markdown("---")
 st.caption(
     "CuraFrame Console v1.0 | "
     "Inspired by Krüger & Feeney (2025) — CardiAnx-1 Dual-Domain Concept | "
-    "See `PHILOSOPHY.md` for framework principles"
+    "See `PHILOSOPHY.md` for framework principles | "
+    "[MIT License](https://github.com/dfeen87/CuraFrame/blob/main/LICENSE)"
 )
