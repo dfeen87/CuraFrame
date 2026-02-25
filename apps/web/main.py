@@ -31,6 +31,7 @@ from typing import Optional
 from fastapi import Cookie, FastAPI, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from jose import JWTError, jwt
 
 try:
     import psycopg
@@ -59,6 +60,11 @@ _MIN_PASSWORD_LENGTH = 8
 
 # PBKDF2-HMAC-SHA256 iteration count (OWASP 2023 recommendation)
 _PBKDF2_ITERATIONS = 260_000
+
+# JWT configuration – set JWT_SECRET in the environment before deploying.
+# If not set, a per-process random secret is used (tokens are invalidated on restart).
+JWT_SECRET: str = os.environ.get("JWT_SECRET", secrets.token_urlsafe(32))
+_JWT_ALGORITHM = "HS256"
 
 # ---------------------------------------------------------------------------
 # Database helpers
@@ -278,6 +284,25 @@ def _verify_password(password: str, stored_hash: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# JWT helpers
+# ---------------------------------------------------------------------------
+
+def _create_jwt(username: str) -> str:
+    """Return a signed JWT containing the username as the ``sub`` claim."""
+    payload = {"sub": username}
+    return jwt.encode(payload, JWT_SECRET, algorithm=_JWT_ALGORITHM)
+
+
+def _decode_jwt(token: str) -> Optional[str]:
+    """Decode *token* and return the username, or ``None`` if invalid."""
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[_JWT_ALGORITHM])
+        return payload.get("sub")
+    except JWTError:
+        return None
+
+
+# ---------------------------------------------------------------------------
 # App factory
 # ---------------------------------------------------------------------------
 
@@ -296,8 +321,6 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
 
     app = FastAPI(title="CuraFrame")
     templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
-    # In-memory session store scoped to this app instance: {token: username}
-    sessions: dict[str, str] = {}
 
     # ------------------------------------------------------------------
     # Security headers middleware
@@ -316,8 +339,8 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
     # ------------------------------------------------------------------
 
     def _current_user(session: Optional[str]) -> Optional[str]:
-        if session and session in sessions:
-            return sessions[session]
+        if session:
+            return _decode_jwt(session)
         return None
 
     # ------------------------------------------------------------------
@@ -760,8 +783,7 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
                 status_code=status.HTTP_401_UNAUTHORIZED,
             )
 
-        token = secrets.token_urlsafe(32)
-        sessions[token] = row["username"]
+        token = _create_jwt(row["username"])
 
         response = RedirectResponse("/dashboard", status_code=status.HTTP_302_FOUND)
         response.set_cookie(
@@ -773,8 +795,6 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
 
     @app.get("/logout")
     async def logout(session: Optional[str] = Cookie(default=None)):
-        if session and session in sessions:
-            del sessions[session]
         response = RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
         response.delete_cookie("session")
         return response
