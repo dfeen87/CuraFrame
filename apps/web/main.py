@@ -309,6 +309,98 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
                 },
             )
 
+    # ---- All-bundles form ------------------------------------------------
+
+    _ALL_BUNDLES = [
+        ("core-safety",  "Core Safety"),
+        ("lipinski",     "Lipinski Ro5"),
+        ("cns",          "CNS Constraints"),
+        ("cardiology",   "Cardiology-Oriented"),
+        ("cardianx",     "CardiAnx Dual-Domain"),
+        ("oncology",     "Oncology"),
+        ("anti-infective", "Anti-Infective"),
+        ("metabolic-disease", "Metabolic Disease"),
+    ]
+
+    @app.get("/form", response_class=HTMLResponse)
+    async def form_get(
+        request: Request,
+        session: Optional[str] = Cookie(default=None),
+    ):
+        user = _current_user(session)
+        if not user:
+            return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
+        return templates.TemplateResponse(
+            request, "form.html", {"user": user, "results": None, "error": None}
+        )
+
+    @app.post("/form", response_class=HTMLResponse)
+    async def form_post(
+        request: Request,
+        session: Optional[str] = Cookie(default=None),
+        logP: Optional[float] = Form(default=None),
+        hERG_IC50: Optional[float] = Form(default=None),
+        beta1_selectivity: Optional[float] = Form(default=None),
+        molecular_weight: Optional[float] = Form(default=None),
+        polar_surface_area: Optional[float] = Form(default=None),
+        hydrogen_bond_donors: Optional[float] = Form(default=None),
+        hydrogen_bond_acceptors: Optional[float] = Form(default=None),
+        Kd_5HT1A: Optional[float] = Form(default=None),
+        Kd_5HT2A: Optional[float] = Form(default=None),
+        Kd_D2: Optional[float] = Form(default=None),
+        plasma_half_life: Optional[float] = Form(default=None),
+    ):
+        user = _current_user(session)
+        if not user:
+            return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
+
+        from cura_frame import Candidate
+        from cura_frame.cli import evaluate_candidate
+
+        _all_props = {
+            "logP": logP,
+            "hERG_IC50": hERG_IC50,
+            "beta1_selectivity": beta1_selectivity,
+            "molecular_weight": molecular_weight,
+            "polar_surface_area": polar_surface_area,
+            "hydrogen_bond_donors": hydrogen_bond_donors,
+            "hydrogen_bond_acceptors": hydrogen_bond_acceptors,
+            "Kd_5HT1A": Kd_5HT1A,
+            "Kd_5HT2A": Kd_5HT2A,
+            "Kd_D2": Kd_D2,
+            "plasma_half_life": plasma_half_life,
+        }
+        properties = {k: v for k, v in _all_props.items() if v is not None}
+        values = {k: v for k, v in _all_props.items() if v is not None}
+
+        results = []
+        try:
+            candidate = Candidate(name="form_all_tests", properties=properties)
+            for bundle_key, bundle_label in _ALL_BUNDLES:
+                result = evaluate_candidate(
+                    candidate=candidate,
+                    bundle_name=bundle_key,
+                    population=None,
+                    strict=False,
+                )
+                results.append({
+                    "label": bundle_label,
+                    "status": result.status.value,
+                    "violations": result.violations,
+                })
+        except Exception as exc:  # noqa: BLE001
+            return templates.TemplateResponse(
+                request,
+                "form.html",
+                {"user": user, "results": None, "error": str(exc), "values": values},
+            )
+
+        return templates.TemplateResponse(
+            request,
+            "form.html",
+            {"user": user, "results": results, "error": None, "values": values},
+        )
+
     # ---- Log recording ---------------------------------------------------
 
     @app.post("/logs/record", response_class=HTMLResponse)

@@ -100,10 +100,12 @@
     <button class="menu-btn" onclick="document.getElementById('dropdownMenu').classList.toggle('open')" aria-label="Menu" aria-haspopup="true">⋮</button>
     <div class="dropdown-menu" id="dropdownMenu" role="menu">
       <a href="#" role="menuitem">About</a>
-      <hr class="divider">
       {% if user is defined and user %}
+      <a href="/form" role="menuitem">Form</a>
+      <hr class="divider">
       <a href="/logout" role="menuitem">Sign out</a>
       {% else %}
+      <hr class="divider">
       <a href="/login" role="menuitem">Sign in…</a>
       {% endif %}
     </div>

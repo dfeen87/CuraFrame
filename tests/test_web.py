@@ -467,7 +467,66 @@ class TestSignInMenu:
         response = client.get("/login")
         assert b'About' in response.content
 
+    def test_dropdown_form_link_absent_when_unauthenticated(self, client):
+        """The Form link must NOT appear in the dropdown for unauthenticated users."""
+        response = client.get("/login")
+        assert b'href="/form"' not in response.content
+
+    def test_dropdown_form_link_present_when_authenticated(self, registered_client):
+        """The Form link must appear in the dropdown when the user is signed in."""
+        response = registered_client.get("/dashboard")
+        assert b'href="/form"' in response.content
+
     def test_register_form_has_minlength_8(self, client):
         """Register form password input must declare minlength=8 for client-side enforcement."""
         response = client.get("/register")
         assert b'minlength="8"' in response.content
+
+
+# ---------------------------------------------------------------------------
+# All-bundles form (/form)
+# ---------------------------------------------------------------------------
+
+class TestAllBundlesForm:
+    def test_form_redirects_unauthenticated(self, client):
+        """GET /form redirects unauthenticated users to /login."""
+        response = client.get("/form")
+        assert response.status_code == 200
+        assert b"Log In" in response.content or b"login" in response.content.lower()
+
+    def test_form_get_returns_html_when_authenticated(self, registered_client):
+        """GET /form returns the form page for signed-in users."""
+        response = registered_client.get("/form")
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert b"Run All Tests" in response.content
+
+    def test_form_shows_all_property_rows(self, registered_client):
+        """The form page exposes an input row for every property."""
+        response = registered_client.get("/form")
+        body = response.content
+        for field in [b"logP", b"molecular_weight", b"hERG_IC50",
+                      b"beta1_selectivity", b"Kd_5HT1A", b"plasma_half_life"]:
+            assert field in body
+
+    def test_form_post_returns_results_for_all_bundles(self, registered_client):
+        """POST /form evaluates all bundles and shows a result row for each."""
+        response = registered_client.post(
+            "/form",
+            data={
+                "logP": "3.0",
+                "hERG_IC50": "20.0",
+                "beta1_selectivity": "150.0",
+            },
+        )
+        assert response.status_code == 200
+        body = response.content
+        for label in [b"Core Safety", b"Lipinski", b"CNS", b"Cardiology",
+                      b"CardiAnx", b"Oncology", b"Anti-Infective", b"Metabolic"]:
+            assert label in body
+
+    def test_form_post_redirects_unauthenticated(self, client):
+        """POST /form redirects unauthenticated users to /login."""
+        response = client.post("/form", data={"logP": "3.0"})
+        assert response.status_code == 200
+        assert b"Log In" in response.content or b"login" in response.content.lower()
