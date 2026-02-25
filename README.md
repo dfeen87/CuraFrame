@@ -841,6 +841,10 @@ CuraFrame's development has been informed by:
 
 Thank you to the scientific community for establishing the knowledge base that CuraFrame attempts to encode faithfully and transparently.
 
+### Contributors
+
+- **Google Jules**: Interactive dashboard, calculator interface, and deployment configuration.
+
 ---
 
 **Version**: 0.1.0  
