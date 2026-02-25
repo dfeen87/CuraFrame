@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Register — CuraFrame{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+  <div class="card">
+    <h1>🧬 Create Account</h1>
+
+    {% if error %}
+    <div class="alert alert-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/register">
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" required
+               placeholder="Choose a username" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required
+               placeholder="your@email.com" autocomplete="email" />
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required
+               placeholder="Choose a password" autocomplete="new-password" />
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%">
+        Register
+      </button>
+    </form>
+
+    <p style="text-align:center;margin-top:1rem;font-size:.9rem;color:#64748b">
+      Already have an account? <a href="/login">Log in</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

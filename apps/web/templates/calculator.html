@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Calculator — CuraFrame{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom:1.5rem">🧮 Constraint Calculator</h1>
+
+<div class="card">
+  <h2>Candidate Properties</h2>
+  <p style="color:#64748b;margin-bottom:1.2rem;font-size:.9rem">
+    Enter property values below and select a constraint bundle to evaluate.
+    Missing properties are skipped (non-strict mode).
+  </p>
+
+  <form method="post" action="/calculator">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+      <div class="form-group">
+        <label for="logP">logP</label>
+        <input type="number" id="logP" name="logP" step="0.01"
+               value="{{ logP if logP is defined else '0.0' }}" />
+      </div>
+      <div class="form-group">
+        <label for="hERG_IC50">hERG IC₅₀ (μM)</label>
+        <input type="number" id="hERG_IC50" name="hERG_IC50" step="0.01"
+               value="{{ hERG_IC50 if hERG_IC50 is defined else '0.0' }}" />
+      </div>
+      <div class="form-group">
+        <label for="beta1_selectivity">β₁ Selectivity (ratio)</label>
+        <input type="number" id="beta1_selectivity" name="beta1_selectivity" step="0.1"
+               value="{{ beta1_selectivity if beta1_selectivity is defined else '0.0' }}" />
+      </div>
+      <div class="form-group">
+        <label for="bundle">Constraint Bundle</label>
+        <select id="bundle" name="bundle">
+          {% set bundles = [
+            ("core-safety",  "Core Safety"),
+            ("lipinski",     "Lipinski Ro5"),
+            ("cns",          "CNS Constraints"),
+            ("cardiology",   "Cardiology-Oriented"),
+            ("cardianx",     "CardiAnx Dual-Domain"),
+          ] %}
+          {% for value, label in bundles %}
+          <option value="{{ value }}"
+            {% if bundle is defined and bundle == value %}selected{% endif %}>
+            {{ label }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary" style="margin-top:.5rem">
+      🔍 Evaluate
+    </button>
+    <a href="/calculator" class="btn btn-secondary" style="margin-left:.5rem">Reset</a>
+  </form>
+</div>
+
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+{% if result %}
+<div class="card">
+  <h2>Evaluation Result</h2>
+
+  {% set status_val = result.status.value %}
+  <p style="margin-bottom:1rem">
+    Status:
+    <span class="badge badge-{{ status_val }}">{{ status_val }}</span>
+  </p>
+
+  {% if result.violations %}
+  <h3 style="margin-bottom:.75rem">Violations</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Constraint</th>
+        <th>Observed</th>
+        <th>Threshold</th>
+        <th>Severity</th>
+        <th>Rationale</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for v in result.violations %}
+      <tr>
+        <td><strong>{{ v.constraint }}</strong></td>
+        <td>{{ v.observed }}</td>
+        <td>{{ v.threshold }}</td>
+        <td>{{ v.severity.value.upper() }}</td>
+        <td style="font-size:.85rem;color:#475569">{{ v.rationale }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="alert alert-success">✅ All evaluated constraints satisfied.</p>
+  {% endif %}
+
+  {% if result.warnings %}
+  <div style="margin-top:1rem">
+    <h3 style="margin-bottom:.5rem">Warnings</h3>
+    {% for w in result.warnings %}
+    <div class="alert alert-warning">⚠️ {{ w }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if result.notes %}
+  <div class="alert alert-info" style="margin-top:1rem">ℹ️ {{ result.notes }}</div>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
