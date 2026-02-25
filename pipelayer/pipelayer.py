@@ -14,21 +14,24 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
+import logging
 import time
 import statistics
 import math
 
-# ---- Mock AILEE Imports for Standalone Operation ----
+logger = logging.getLogger(__name__)
+
+# ---- AILEE Imports (standalone fallback if library not available) ----
 # In a real integration, these would be imported from ailee.ailee_trust_pipeline_v1
 try:
-    from ...ailee_trust_pipeline_v1 import (
+    from ailee_trust_pipeline_v1 import (  # type: ignore[import]
         AileeTrustPipeline,
         AileeConfig,
         DecisionResult,
-        SafetyStatus
+        SafetyStatus,
     )
-except (ImportError, ValueError):
-    # Mock classes for standalone functionality
+except ImportError:
+    # Standalone fallback implementation
     class SafetyStatus(str, Enum):
         SAFE = "SAFE"
         UNSAFE = "UNSAFE"
@@ -69,14 +72,78 @@ except (ImportError, ValueError):
     class AileeTrustPipeline:
         def __init__(self, config: AileeConfig):
             self.config = config
+            self._history: List[float] = []
 
-        def process(self, raw_value: float, raw_confidence: float, peer_values: List[float], timestamp: float, context: Dict[str, Any]) -> DecisionResult:
-            # Simple pass-through mock logic
-            status = SafetyStatus.SAFE if raw_value >= self.config.accept_threshold else SafetyStatus.UNSAFE
+        def process(
+            self,
+            raw_value: float,
+            raw_confidence: float,
+            peer_values: List[float],
+            timestamp: float,
+            context: Dict[str, Any],
+        ) -> DecisionResult:
+            """Deterministic standalone AILEE trust pipeline."""
+            # Clamp to hard bounds
+            value = max(self.config.hard_min, min(self.config.hard_max, raw_value))
+
+            # Stability component: penalise variance in recent history
+            self._history.append(value)
+            if len(self._history) > self.config.history_window:
+                self._history.pop(0)
+
+            if len(self._history) >= 2:
+                stdev = statistics.stdev(self._history[-min(10, len(self._history)):])
+                stability = max(0.0, 1.0 - stdev)
+            else:
+                stability = 1.0
+
+            # Agreement component: fraction of peers within grace delta
+            if peer_values:
+                agreeing = sum(
+                    1 for p in peer_values
+                    if abs(p - value) <= self.config.grace_peer_delta
+                )
+                agreement = agreeing / len(peer_values)
+            else:
+                agreement = 1.0  # No peers → full agreement by default
+
+            # Likelihood component: raw confidence passed through
+            likelihood = max(0.0, min(1.0, raw_confidence))
+
+            # Composite confidence
+            composite = (
+                self.config.w_stability * stability
+                + self.config.w_agreement * agreement
+                + self.config.w_likelihood * likelihood
+            )
+
+            # Grace: allow borderline values through when peers agree
+            grace_applied = False
+            effective_value = value
+            if (
+                self.config.enable_grace
+                and self.config.borderline_low <= value < self.config.accept_threshold
+                and agreement >= self.config.grace_min_peer_agreement_ratio
+            ):
+                effective_value = self.config.accept_threshold
+                grace_applied = True
+
+            # Determine status
+            if effective_value >= self.config.accept_threshold:
+                status = SafetyStatus.SAFE
+            elif effective_value >= self.config.borderline_low:
+                status = SafetyStatus.BORDERLINE
+            else:
+                # Safe-stop fallback
+                if self.config.fallback_mode == "safe_stop":
+                    effective_value = 0.0
+                status = SafetyStatus.UNSAFE
+
             return DecisionResult(
-                validated_value=raw_value,
-                confidence_score=raw_confidence,
-                status=status
+                validated_value=effective_value,
+                confidence_score=composite,
+                status=status,
+                grace_applied=grace_applied,
             )
 
 
@@ -188,7 +255,7 @@ class MachineTelemetry:
         if self.load_moment_pct > 100.0:
             issues.append(f"load_capacity_exceeded ({self.load_moment_pct:.1f}%)")
 
-        if self.hydraulic_pressure_bar < 100.0: # Assuming min pressure
+        if self.hydraulic_pressure_bar < 100.0:  # Minimum safe hydraulic pressure
             issues.append(f"hydraulic_pressure_low ({self.hydraulic_pressure_bar:.1f} bar)")
 
         if self.engine_temp_c > 110.0:
@@ -226,7 +293,7 @@ class SiteConditions:
 
         max_slope = 15.0
         if abs(self.ground_slope_roll_deg) > max_slope:
-             issues.append(f"ground_slope_roll_excessive ({self.ground_slope_roll_deg:.1f} deg)")
+            issues.append(f"ground_slope_roll_excessive ({self.ground_slope_roll_deg:.1f} deg)")
 
         if self.soil_stability_index < 0.4:
             issues.append(f"soil_instability ({self.soil_stability_index:.2f})")
@@ -357,8 +424,8 @@ class PipelayerGovernor:
 
         # 3. Check Operator Fatigue
         if signals.operator_fatigue_score is not None and signals.operator_fatigue_score > 0.7:
-             reasons.append(f"operator_fatigue_high ({signals.operator_fatigue_score:.2f})")
-             precautionary_flags.append("operator_fatigue_detected")
+            reasons.append(f"operator_fatigue_high ({signals.operator_fatigue_score:.2f})")
+            precautionary_flags.append("operator_fatigue_detected")
 
         # 4. Calculate Penalty
         penalty = 0.0
@@ -378,13 +445,35 @@ class PipelayerGovernor:
         ailee_result = self.pipeline.process(
             raw_value=adjusted_score,
             raw_confidence=signals.measurement_reliability,
-            peer_values=[], # No peers in this simple example
+            peer_values=[],
             timestamp=ts,
             context=ctx
         )
 
         # 6. Make Decision
-        return self._make_decision(signals, ailee_result, reasons, precautionary_flags, ts)
+        decision = self._make_decision(signals, ailee_result, reasons, precautionary_flags, ts)
+
+        # 7. Log event for audit trail
+        self.event_log.append({
+            "timestamp": ts,
+            "operation_mode": signals.operation_mode.value,
+            "operator_id": signals.operator_id,
+            "adjusted_score": adjusted_score,
+            "ailee_status": ailee_result.status,
+            "authorized": decision.operation_authorized,
+            "outcome": decision.decision_outcome.value,
+            "reasons": list(reasons),
+            "precautionary_flags": list(precautionary_flags),
+        })
+        logger.info(
+            "PipelayerGovernor: %s | authorized=%s | score=%.3f | flags=%s",
+            decision.decision_outcome.value,
+            decision.operation_authorized,
+            adjusted_score,
+            precautionary_flags,
+        )
+
+        return decision
 
     def _make_decision(
         self,
