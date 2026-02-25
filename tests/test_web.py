@@ -581,3 +581,46 @@ class TestAllBundlesForm:
         response = client.post("/form", data={"logP": "3.0"})
         assert response.status_code == 200
         assert b"Log In" in response.content or b"login" in response.content.lower()
+
+
+# ---------------------------------------------------------------------------
+# Navigation menu
+# ---------------------------------------------------------------------------
+
+class TestNavigationMenu:
+    def test_signed_out_menu_contains_about_sign_in_and_register(self, client):
+        response = client.get("/login")
+        assert response.status_code == 200
+
+        body = response.text
+        assert "About" in body
+        assert "Sign in" in body
+        assert "Register" in body
+        assert "navMenuButton" in body
+        assert '<details class="dropdown">' in body
+        assert "☰" in body or "Menu" in body
+
+        about_index = body.index("About")
+        sign_in_index = body.index("Sign in")
+        register_index = body.index("Register")
+        assert about_index < sign_in_index < register_index
+
+
+# ---------------------------------------------------------------------------
+# Database adapter helpers
+# ---------------------------------------------------------------------------
+
+class TestDatabaseAdapterHelpers:
+    def test_postgres_query_adaptation_uses_psycopg_placeholders(self):
+        from apps.web.main import _adapt_query
+
+        query = "SELECT * FROM users WHERE username = ? AND email = ?"
+        adapted = _adapt_query(query, "postgresql://localhost:5432/curaframe")
+        assert adapted == "SELECT * FROM users WHERE username = %s AND email = %s"
+
+    def test_sqlite_query_adaptation_keeps_question_mark_placeholders(self):
+        from apps.web.main import _adapt_query
+
+        query = "SELECT * FROM users WHERE username = ?"
+        adapted = _adapt_query(query, "/tmp/curaframe.db")
+        assert adapted == query

@@ -73,15 +73,17 @@
 
     footer { text-align: center; color: #94a3b8; font-size: 0.8rem; padding: 2rem; }
 
-    /* Three-dots dropdown menu */
+    /* Burger dropdown menu */
     .dropdown { position: relative; }
-    .menu-btn { background: none; border: none; color: #cce0ff; font-size: 1.5rem; cursor: pointer; padding: 0 0.4rem; line-height: 1; letter-spacing: 0.05em; }
-    .menu-btn:hover { color: #fff; }
-    .dropdown-menu { display: none; position: absolute; right: 0; top: calc(100% + 6px); background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.12); min-width: 140px; z-index: 100; }
+    .menu-btn { list-style: none; background: none; border: 1px solid #334155; border-radius: 6px; color: #cce0ff; font-size: 1.1rem; cursor: pointer; padding: 0.2rem 0.6rem; line-height: 1.1; user-select: none; }
+    .menu-btn::-webkit-details-marker { display: none; }
+    .menu-btn:hover { color: #fff; border-color: #64748b; }
+    .menu-btn .menu-label { font-size: 0.85rem; margin-left: 0.35rem; vertical-align: middle; }
+    .dropdown-menu { display: none; position: absolute; right: 0; top: calc(100% + 6px); background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.12); min-width: 170px; z-index: 100; }
+    .dropdown[open] .dropdown-menu { display: block; }
     .dropdown-menu a { display: block; padding: 0.6rem 1rem; color: #1a1a2e; font-size: 0.9rem; text-decoration: none; }
     .dropdown-menu a:hover { background: #f1f5f9; }
     .dropdown-menu .divider { border: none; border-top: 1px solid #e2e8f0; margin: 0.25rem 0; }
-    .dropdown-menu.open { display: block; }
   </style>
 </head>
 <body>
@@ -96,8 +98,8 @@
   {% else %}
   <span class="spacer"></span>
   {% endif %}
-  <div class="dropdown">
-    <button class="menu-btn" onclick="document.getElementById('dropdownMenu').classList.toggle('open')" aria-label="Menu" aria-haspopup="true">⋮</button>
+  <details class="dropdown">
+    <summary class="menu-btn" id="navMenuButton" aria-label="Open menu">☰ <span class="menu-label">Menu</span></summary>
     <div class="dropdown-menu" id="dropdownMenu" role="menu">
       <a href="#" role="menuitem">About</a>
       {% if user is defined and user %}
@@ -105,12 +107,11 @@
       <hr class="divider">
       <a href="/logout" role="menuitem">Sign out</a>
       {% else %}
-      <hr class="divider">
       <a href="/login" role="menuitem">Sign in</a>
       <a href="/register" role="menuitem">Register</a>
       {% endif %}
     </div>
-  </div>
+  </details>
 </nav>
 
 <main>
@@ -118,13 +119,5 @@
 </main>
 
 <footer>CuraFrame — Constraint-driven reasoning for therapeutic design</footer>
-<script>
-  document.addEventListener('click', function(e) {
-    var menu = document.getElementById('dropdownMenu');
-    if (menu && !e.target.closest('.dropdown')) {
-      menu.classList.remove('open');
-    }
-  });
-</script>
 </body>
 </html>
