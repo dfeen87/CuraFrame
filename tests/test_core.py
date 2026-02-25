@@ -825,3 +825,143 @@ class TestCliMain:
 
         exit_code = cli_main([str(candidate_json), "--bundle", "nonexistent-bundle"])
         assert exit_code == 1
+
+
+# -----------------------------
+# Bundle simulations
+# -----------------------------
+
+class TestConstraintBundles:
+    """Simulation tests verifying each constraint bundle accepts and rejects as claimed."""
+
+    def test_lipinski_accepts_drug_like_candidate(self):
+        """Lipinski Ro5 bundle accepts a standard oral drug-like molecule."""
+        candidate = Candidate(
+            name="drug_like",
+            properties={
+                "molecular_weight": 350.0,
+                "logP": 3.0,
+                "hydrogen_bond_donors": 3,
+                "hydrogen_bond_acceptors": 7,
+            },
+        )
+        result = evaluate_candidate(candidate, bundle_name="lipinski", population=None, strict=True)
+        assert result.status == EvaluationStatus.ACCEPTED
+
+    def test_lipinski_rejects_high_molecular_weight(self):
+        """Lipinski Ro5 bundle rejects a candidate exceeding MW > 500."""
+        candidate = Candidate(
+            name="heavy_molecule",
+            properties={
+                "molecular_weight": 600.0,  # > 500 Da limit
+                "logP": 3.0,
+                "hydrogen_bond_donors": 3,
+                "hydrogen_bond_acceptors": 7,
+            },
+        )
+        result = evaluate_candidate(candidate, bundle_name="lipinski", population=None, strict=True)
+        assert result.status == EvaluationStatus.REJECTED
+        assert any(v.constraint == "molecular_weight" for v in result.violations)
+
+    def test_cns_accepts_bbb_penetrant_candidate(self):
+        """CNS bundle accepts a molecule with appropriate physicochemical profile."""
+        candidate = Candidate(
+            name="cns_candidate",
+            properties={
+                "logP": 3.0,
+                "polar_surface_area": 60.0,
+                "molecular_weight": 350.0,
+                "hydrogen_bond_donors": 2,
+                "hydrogen_bond_acceptors": 6,
+            },
+        )
+        result = evaluate_candidate(candidate, bundle_name="cns", population=None, strict=True)
+        assert result.status == EvaluationStatus.ACCEPTED
+
+    def test_cns_rejects_high_logP(self):
+        """CNS bundle rejects a candidate with logP above the CNS-optimised ceiling."""
+        candidate = Candidate(
+            name="lipophilic_cns",
+            properties={
+                "logP": 5.0,          # > 3.8 CNS ceiling
+                "polar_surface_area": 60.0,
+                "molecular_weight": 350.0,
+                "hydrogen_bond_donors": 2,
+                "hydrogen_bond_acceptors": 6,
+            },
+        )
+        result = evaluate_candidate(candidate, bundle_name="cns", population=None, strict=True)
+        assert result.status == EvaluationStatus.REJECTED
+        assert any(v.constraint == "logP" for v in result.violations)
+
+    def test_cardiology_accepts_safe_cardiac_candidate(self):
+        """Cardiology bundle accepts a candidate satisfying the stricter hERG threshold."""
+        candidate = Candidate(
+            name="cardiac_safe",
+            properties={
+                "logP": 3.0,
+                "hERG_IC50": 20.0,        # >= 15 µM cardiology threshold
+                "beta1_selectivity": 150.0,
+                "molecular_weight": 350.0,
+            },
+        )
+        result = evaluate_candidate(candidate, bundle_name="cardiology", population=None, strict=True)
+        assert result.status == EvaluationStatus.ACCEPTED
+
+    def test_cardiology_rejects_insufficient_herg_margin(self):
+        """Cardiology bundle rejects a candidate that would pass core-safety but fails the stricter hERG threshold."""
+        candidate = Candidate(
+            name="borderline_herg",
+            properties={
+                "logP": 3.0,
+                "hERG_IC50": 12.0,        # >= 10 (core-safety) but < 15 (cardiology)
+                "beta1_selectivity": 150.0,
+                "molecular_weight": 350.0,
+            },
+        )
+        result = evaluate_candidate(candidate, bundle_name="cardiology", population=None, strict=True)
+        assert result.status == EvaluationStatus.REJECTED
+        assert any(v.constraint == "hERG_IC50" for v in result.violations)
+
+    def test_cardianx_accepts_dual_domain_candidate(self):
+        """CardiAnx bundle accepts a candidate satisfying all dual-domain constraints."""
+        candidate = Candidate(
+            name="cardianx_candidate",
+            properties={
+                "logP": 3.2,
+                "polar_surface_area": 70.0,
+                "molecular_weight": 480.0,
+                "hydrogen_bond_donors": 2,
+                "hydrogen_bond_acceptors": 6,
+                "hERG_IC50": 20.0,
+                "beta1_selectivity": 150.0,
+                "Kd_5HT1A": 10.0,         # within 5-20 nM target window
+                "Kd_5HT2A": 600.0,         # >= 500 nM (avoidance)
+                "Kd_D2": 1500.0,           # >= 1000 nM (avoidance)
+                "plasma_half_life": 12.0,  # within 8-16 h window
+            },
+        )
+        result = evaluate_candidate(candidate, bundle_name="cardianx", population=None, strict=True)
+        assert result.status == EvaluationStatus.ACCEPTED
+
+    def test_cardianx_rejects_out_of_window_logP(self):
+        """CardiAnx bundle rejects a candidate with logP below the BBB-penetration floor."""
+        candidate = Candidate(
+            name="too_hydrophilic",
+            properties={
+                "logP": 1.0,              # < 2.5 lower bound
+                "polar_surface_area": 70.0,
+                "molecular_weight": 480.0,
+                "hydrogen_bond_donors": 2,
+                "hydrogen_bond_acceptors": 6,
+                "hERG_IC50": 20.0,
+                "beta1_selectivity": 150.0,
+                "Kd_5HT1A": 10.0,
+                "Kd_5HT2A": 600.0,
+                "Kd_D2": 1500.0,
+                "plasma_half_life": 12.0,
+            },
+        )
+        result = evaluate_candidate(candidate, bundle_name="cardianx", population=None, strict=True)
+        assert result.status == EvaluationStatus.REJECTED
+        assert any(v.constraint == "logP" for v in result.violations)
