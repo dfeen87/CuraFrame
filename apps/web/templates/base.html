@@ -86,7 +86,9 @@
   <a href="/logout">Logout</a>
   {% else %}
   <span class="spacer"></span>
+  {% if request.url.path not in ['/login', '/register'] %}
   <a href="/login" class="btn btn-primary btn-sm" style="text-decoration:none">Sign In</a>
+  {% endif %}
   {% endif %}
 </nav>
 

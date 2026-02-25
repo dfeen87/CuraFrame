@@ -403,3 +403,54 @@ class TestLogs:
         # User B's logs should be empty
         resp_b = client_b.get("/logs")
         assert b"lipinski" not in resp_b.content
+
+
+# ---------------------------------------------------------------------------
+# Security headers
+# ---------------------------------------------------------------------------
+
+class TestSecurityHeaders:
+    """HTTP security headers must be present on every response."""
+
+    def _assert_security_headers(self, response):
+        assert response.headers.get("x-frame-options") == "DENY"
+        assert response.headers.get("x-content-type-options") == "nosniff"
+        assert response.headers.get("referrer-policy") == "strict-origin-when-cross-origin"
+
+    def test_security_headers_on_login_page(self, client):
+        response = client.get("/login")
+        self._assert_security_headers(response)
+
+    def test_security_headers_on_register_page(self, client):
+        response = client.get("/register")
+        self._assert_security_headers(response)
+
+    def test_security_headers_on_dashboard(self, registered_client):
+        response = registered_client.get("/dashboard")
+        self._assert_security_headers(response)
+
+    def test_security_headers_on_calculator(self, registered_client):
+        response = registered_client.get("/calculator")
+        self._assert_security_headers(response)
+
+
+# ---------------------------------------------------------------------------
+# Nav bar Sign In button visibility
+# ---------------------------------------------------------------------------
+
+class TestSignInButton:
+    def test_sign_in_button_absent_on_login_page(self, client):
+        """Sign In button must NOT appear on the /login page itself."""
+        response = client.get("/login")
+        # The nav Sign In anchor should not be rendered on the login page
+        assert b'href="/login" class="btn btn-primary btn-sm"' not in response.content
+
+    def test_sign_in_button_absent_on_register_page(self, client):
+        """Sign In button must NOT appear on the /register page."""
+        response = client.get("/register")
+        assert b'href="/login" class="btn btn-primary btn-sm"' not in response.content
+
+    def test_register_form_has_minlength_8(self, client):
+        """Register form password input must declare minlength=8 for client-side enforcement."""
+        response = client.get("/register")
+        assert b'minlength="8"' in response.content
