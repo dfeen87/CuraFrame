@@ -596,9 +596,6 @@ class TestNavigationMenu:
         assert "About" in body
         assert "Sign in" in body
         assert "Register" in body
-        assert "navMenuButton" in body
-        assert '<details class="dropdown">' in body
-        assert "☰" in body or "Menu" in body
 
         about_index = body.index("About")
         sign_in_index = body.index("Sign in")

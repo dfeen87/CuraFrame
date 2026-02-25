@@ -75,12 +75,11 @@
 
     /* Burger dropdown menu */
     .dropdown { position: relative; }
-    .menu-btn { list-style: none; background: none; border: 1px solid #334155; border-radius: 6px; color: #cce0ff; font-size: 1.1rem; cursor: pointer; padding: 0.2rem 0.6rem; line-height: 1.1; user-select: none; }
-    .menu-btn::-webkit-details-marker { display: none; }
+    .menu-btn { background: none; border: 1px solid #334155; border-radius: 6px; color: #cce0ff; font-size: 1.1rem; cursor: pointer; padding: 0.2rem 0.6rem; line-height: 1.1; }
     .menu-btn:hover { color: #fff; border-color: #64748b; }
     .menu-btn .menu-label { font-size: 0.85rem; margin-left: 0.35rem; vertical-align: middle; }
-    .dropdown-menu { display: none; position: absolute; right: 0; top: calc(100% + 6px); background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.12); min-width: 170px; z-index: 100; }
-    .dropdown[open] .dropdown-menu { display: block; }
+    .dropdown-menu { position: absolute; right: 0; top: calc(100% + 6px); background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.12); min-width: 170px; z-index: 100; }
+    .dropdown-menu[hidden] { display: none; }
     .dropdown-menu a { display: block; padding: 0.6rem 1rem; color: #1a1a2e; font-size: 0.9rem; text-decoration: none; }
     .dropdown-menu a:hover { background: #f1f5f9; }
     .dropdown-menu .divider { border: none; border-top: 1px solid #e2e8f0; margin: 0.25rem 0; }
@@ -98,9 +97,9 @@
   {% else %}
   <span class="spacer"></span>
   {% endif %}
-  <details class="dropdown">
-    <summary class="menu-btn" id="navMenuButton" aria-label="Open menu">☰ <span class="menu-label">Menu</span></summary>
-    <div class="dropdown-menu" id="dropdownMenu" role="menu">
+  <div class="dropdown">
+    <button class="menu-btn" id="navMenuButton" aria-label="Open menu" aria-haspopup="true" aria-controls="dropdownMenu" aria-expanded="false">☰ <span class="menu-label">Menu</span></button>
+    <div class="dropdown-menu" id="dropdownMenu" role="menu" hidden>
       <a href="#" role="menuitem">About</a>
       {% if user is defined and user %}
       <a href="/form" role="menuitem">Form</a>
@@ -119,5 +118,31 @@
 </main>
 
 <footer>CuraFrame — Constraint-driven reasoning for therapeutic design</footer>
+<script>
+  (function () {
+    var button = document.getElementById('navMenuButton');
+    var menu = document.getElementById('dropdownMenu');
+    if (!button || !menu) return;
+
+    button.addEventListener('click', function (event) {
+      event.stopPropagation();
+      var isOpen = !menu.hasAttribute('hidden');
+      if (isOpen) {
+        menu.setAttribute('hidden', 'hidden');
+        button.setAttribute('aria-expanded', 'false');
+      } else {
+        menu.removeAttribute('hidden');
+        button.setAttribute('aria-expanded', 'true');
+      }
+    });
+
+    document.addEventListener('click', function (event) {
+      if (!event.target.closest('.dropdown')) {
+        menu.setAttribute('hidden', 'hidden');
+        button.setAttribute('aria-expanded', 'false');
+      }
+    });
+  })();
+</script>
 </body>
 </html>
