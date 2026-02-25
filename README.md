@@ -3,6 +3,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 
+> **📣 Update — February 2025:** The AILEE pipeline has been reviewed and improved for greater cohesion with the CuraFrame application.
+
+---
+
 ## Abstract
 
 CuraFrame is a transparent, safety-first computational framework for constraint-based evaluation of hypothetical therapeutic candidates. Grounded in principles of medicinal chemistry, pharmacology, and safety pharmacology, CuraFrame provides a systematic approach to assess whether proposed molecular designs satisfy established pharmacokinetic (PK), pharmacodynamic (PD), and safety criteria before advancing to experimental validation.
@@ -845,7 +849,7 @@ Thank you to the scientific community for establishing the knowledge base that C
 
 - **Google Jules**: Interactive dashboard, calculator interface, and deployment configuration.
 - **Google Jules**: Pipelayer domain implementation.
-- **Claude Sonnet (Anthropic)**: AILEE pipeline review and hardening — replaced the non-deterministic mock trust pipeline with a deterministic composite-confidence implementation (stability × agreement × likelihood weighting, grace logic, safe-stop fallback); added structured audit event logging to `PipelayerGovernor`; fixed import path and indentation issues in `pipelayer.py`; replaced `random.uniform()` AILEE trust score in the Streamlit dashboard with a reproducible severity-weighted calculation; added plain-text summary download button for easy log export and sharing.
+- **Claude Sonnet (Anthropic)**: AILEE pipeline code review and improvements for greater cohesion with the CuraFrame application.
 
 ---
 
