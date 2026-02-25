@@ -39,10 +39,6 @@ _TEMPLATE_DIR = Path(__file__).parent / "templates"
 _DEFAULT_DB = Path(__file__).parent.parent.parent / "curaframe.db"
 DB_PATH = os.environ.get("CURAFRAME_DB", str(_DEFAULT_DB))
 
-# In-memory session store: {token: username}
-_sessions: dict[str, str] = {}
-
-
 # ---------------------------------------------------------------------------
 # Database helpers
 # ---------------------------------------------------------------------------
@@ -107,14 +103,16 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
 
     app = FastAPI(title="CuraFrame")
     templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
+    # In-memory session store scoped to this app instance: {token: username}
+    sessions: dict[str, str] = {}
 
     # ------------------------------------------------------------------
     # Auth helpers (scoped to this app instance)
     # ------------------------------------------------------------------
 
     def _current_user(session: Optional[str]) -> Optional[str]:
-        if session and session in _sessions:
-            return _sessions[session]
+        if session and session in sessions:
+            return sessions[session]
         return None
 
     # ------------------------------------------------------------------
@@ -350,7 +348,7 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
             )
 
         token = secrets.token_urlsafe(32)
-        _sessions[token] = row["username"]
+        sessions[token] = row["username"]
 
         response = RedirectResponse("/dashboard", status_code=status.HTTP_302_FOUND)
         response.set_cookie("session", token, httponly=True, samesite="lax")
@@ -360,8 +358,8 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
 
     @app.get("/logout")
     async def logout(session: Optional[str] = Cookie(default=None)):
-        if session and session in _sessions:
-            del _sessions[session]
+        if session and session in sessions:
+            del sessions[session]
         response = RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
         response.delete_cookie("session")
         return response
