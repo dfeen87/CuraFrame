@@ -8,3 +8,10 @@ services:
     envVars:
       - key: CURAFRAME_DB
         value: /opt/render/project/src/curaframe.db
+
+  - type: web
+    name: curaframe-console
+    env: python
+    buildCommand: pip install -r requirements.txt && pip install -e .
+    startCommand: streamlit run apps/console_streamlit/app.py --server.port $PORT --server.address 0.0.0.0
+    plan: free
