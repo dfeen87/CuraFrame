@@ -18,6 +18,7 @@ This application does NOT:
 import json
 import streamlit as st
 import urllib.parse
+import db_auth
 
 from cura_frame import (
     CuraFrame,
@@ -49,6 +50,22 @@ st.set_page_config(
         'About': "CuraFrame: Constraint-driven therapeutic design reasoning"
     }
 )
+
+# Initialize Database
+try:
+    db_auth.init_db()
+except Exception as e:
+    st.error(f"Database initialization failed: {e}")
+
+# Custom CSS for Hamburger Menu
+st.markdown("""
+<style>
+    [data-testid="collapsedControl"], [data-testid="stSidebarCollapsedControl"] {
+        color: #FF4B4B;
+        transform: scale(1.5);
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # Constraint bundle registry
 BUNDLES = {
@@ -129,7 +146,47 @@ st.markdown("---")
 # Sidebar: Configuration
 # -----------------------------
 
+if 'user' not in st.session_state:
+    st.session_state['user'] = None
+
 with st.sidebar:
+    st.header("👤 Account")
+    if st.session_state['user']:
+        st.success(f"Welcome, **{st.session_state['user']}**!")
+        if st.button("Sign Out"):
+            st.session_state['user'] = None
+            st.rerun()
+    else:
+        auth_mode = st.radio("Access", ["Sign In", "Register"], label_visibility="collapsed")
+
+        if auth_mode == "Sign In":
+            with st.form("login_form"):
+                username = st.text_input("Username")
+                password = st.text_input("Password", type="password")
+                submitted = st.form_submit_button("Sign In")
+                if submitted:
+                    if db_auth.authenticate_user(username, password):
+                        st.session_state['user'] = username
+                        st.rerun()
+                    else:
+                        st.error("Invalid username or password")
+
+        else:  # Register
+            with st.form("register_form"):
+                new_user = st.text_input("Username")
+                new_email = st.text_input("Email")
+                new_pass = st.text_input("Password", type="password")
+                submitted = st.form_submit_button("Register")
+                if submitted:
+                    if len(new_pass) < 8:
+                        st.error("Password must be at least 8 characters.")
+                    elif db_auth.register_user(new_user, new_email, new_pass):
+                        st.success("Registration successful! Please sign in.")
+                    else:
+                        st.error("Username or email already exists.")
+
+    st.markdown("---")
+
     st.header("⚙️ Configuration")
 
     # Bundle selection
@@ -208,6 +265,15 @@ with st.sidebar:
         )
     else:
         uploaded = None
+
+
+# -----------------------------
+# Authentication Guard
+# -----------------------------
+
+if not st.session_state['user']:
+    st.info("Please sign in or register to access the CuraFrame Console.")
+    st.stop()
 
 
 # -----------------------------
@@ -387,6 +453,28 @@ if evaluate_button:
         pop_arg = population if use_population else None
         result = cura.evaluate(cand, population=pop_arg, strict=strict)
 
+        # Store in session state
+        st.session_state['last_result'] = result
+        st.session_state['last_candidate'] = cand
+        st.session_state['last_cura'] = cura
+        st.session_state['last_bundle'] = bundle_name
+        st.session_state['last_pop'] = pop_arg
+        st.session_state['last_strict'] = strict
+
+    except json.JSONDecodeError as e:
+        st.error(f"❌ **Invalid JSON:** {e}")
+        st.code(candidate_text, language="json")
+    except Exception as e:
+        st.error(f"❌ **Evaluation failed:** {e}")
+        st.exception(e)
+
+if 'last_result' in st.session_state:
+    result = st.session_state['last_result']
+    cand = st.session_state['last_candidate']
+    cura = st.session_state['last_cura']
+    # Use stored config for consistency in display
+
+    try:
         # Display results
         st.markdown("---")
         st.header("📊 Evaluation Results")
@@ -471,6 +559,12 @@ if evaluate_button:
 
         with col_export:
             st.subheader("Export")
+
+            if st.button("💾 Save to History", type="primary", use_container_width=True):
+                if db_auth.save_log(st.session_state['user'], cand.properties, bundle_name, result.status.value):
+                    st.success("Saved to history!")
+                else:
+                    st.error("Failed to save.")
 
             # Export results as JSON
             export_data = {
