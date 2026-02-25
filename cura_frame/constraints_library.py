@@ -599,6 +599,151 @@ def hepatic_clearance_max(max_CL_mL_min_kg: float = 50.0) -> Constraint:
 
 
 # ---------------------------------------------------------------------
+# Metabolic safety constraints
+# ---------------------------------------------------------------------
+
+def cyp3a4_inhibition_min(min_ic50_uM: float = 10.0) -> Constraint:
+    """
+    Minimum acceptable CYP3A4 IC50 (μM).
+
+    Rationale:
+        CYP3A4 is the most abundant hepatic metabolic enzyme and is
+        responsible for metabolising ~50% of clinically used drugs.
+        Inhibition causes drug-drug interactions (DDIs), toxicity, and
+        unpredictable pharmacokinetics.
+
+        IC50 < 1 μM: High DDI risk — generally unacceptable
+        IC50 1–10 μM: Moderate risk — requires caution
+        IC50 > 10 μM: Generally acceptable for early-stage candidates
+
+    References:
+        Isoherranen et al. (2009) — CYP3A4 and DDI prediction
+        FDA Guidance on Drug Interaction Studies (2020)
+    """
+    return Constraint(
+        name="CYP3A4_IC50",
+        threshold=min_ic50_uM,
+        comparator=greater_than_or_equal,
+        rationale="CYP3A4 inhibition causes drug-drug interactions and metabolic toxicity",
+        severity=Severity.CRITICAL,
+        provenance=Provenance(
+            source_type="in_vitro_metabolic_safety",
+            confidence=0.85,
+            references=[
+                "doi:10.1124/dmd.109.028431",
+                "FDA_DDI_Guidance_2020"
+            ]
+        )
+    )
+
+
+def therapeutic_index_min(min_ti: float = 10.0) -> Constraint:
+    """
+    Minimum acceptable therapeutic index (TI = TD50 / ED50).
+
+    Rationale:
+        The therapeutic index quantifies the safety window between
+        the effective dose and the toxic dose.
+
+        TI < 2: Narrow — high clinical risk, requires TDM
+        TI 2–10: Moderate — manageable with careful dosing
+        TI > 10: Acceptable for most therapeutic contexts
+
+    Default (10.0) is conservative for non-oncology compounds.
+    For cytotoxic oncology agents, a lower minimum may be appropriate
+    with strict population monitoring.
+
+    References:
+        Muller & Milton (2012) — The determination and interpretation of TI
+    """
+    return Constraint(
+        name="therapeutic_index",
+        threshold=min_ti,
+        comparator=greater_than_or_equal,
+        rationale="Low therapeutic index increases risk of toxicity at therapeutic doses",
+        severity=Severity.CRITICAL,
+        provenance=Provenance(
+            source_type="preclinical_safety_pharmacology",
+            confidence=0.80,
+            references=[
+                "doi:10.1038/nrd3801"
+            ]
+        )
+    )
+
+
+def protein_binding_max(max_ppb_percent: float = 95.0) -> Constraint:
+    """
+    Maximum acceptable plasma protein binding (PPB, %).
+
+    Rationale:
+        Only unbound (free) drug crosses membranes and exerts
+        pharmacological effects. Highly bound compounds exhibit:
+        - High inter-patient variability (hypoalbuminaemia risk)
+        - Displacement interactions at high binding sites
+        - Unpredictable dose-response relationships
+
+        PPB > 99%: Very high — clinically problematic
+        PPB > 95%: High — requires characterisation
+        PPB < 95%: Generally acceptable
+
+    Use for: All drug modalities, particularly those with narrow TI.
+
+    References:
+        Schmidt et al. (2010) — PPB and drug discovery
+    """
+    return Constraint(
+        name="protein_binding",
+        threshold=max_ppb_percent,
+        comparator=less_than_or_equal,
+        rationale="High plasma protein binding causes variability and displacement interactions",
+        severity=Severity.SEVERE,
+        provenance=Provenance(
+            source_type="pharmacokinetics",
+            confidence=0.75,
+            references=[
+                "doi:10.1007/s00280-009-1199-8"
+            ]
+        )
+    )
+
+
+def aqueous_solubility_min(min_sol_ug_mL: float = 10.0) -> Constraint:
+    """
+    Minimum acceptable aqueous solubility (μg/mL, pH 7.4).
+
+    Rationale:
+        Solubility governs dissolution and absorption of oral drugs,
+        and is essential for parenteral formulation.
+
+        < 1 μg/mL: Practically insoluble — major formulation barrier
+        1–10 μg/mL: Slightly soluble — formulation challenge
+        > 10 μg/mL: Generally acceptable for early candidates
+        > 100 μg/mL: Excellent
+
+    Default (10 μg/mL) is appropriate for early-stage screening.
+    For IV-only formulations, this constraint may be relaxed.
+
+    References:
+        Lipinski (2000) — Drug-like properties and solubility
+    """
+    return Constraint(
+        name="aqueous_solubility",
+        threshold=min_sol_ug_mL,
+        comparator=greater_than_or_equal,
+        rationale="Poor aqueous solubility limits absorption and complicates formulation",
+        severity=Severity.SEVERE,
+        provenance=Provenance(
+            source_type="physicochemical_screening",
+            confidence=0.80,
+            references=[
+                "doi:10.1002/jps.1190"
+            ]
+        )
+    )
+
+
+# ---------------------------------------------------------------------
 # Convenience constraint bundles
 # ---------------------------------------------------------------------
 
@@ -734,4 +879,142 @@ def cardiAnx_dual_domain_constraints() -> List[Constraint]:
 
         # Pharmacokinetics
         plasma_half_life_range(min_t_half_hours=8.0, max_t_half_hours=16.0),
+    ]
+
+
+def oncology_constraints() -> List[Constraint]:
+    """
+    Constraint set for oncology (anti-cancer) drug candidates.
+
+    Rationale:
+        Oncology drugs operate under different safety trade-offs.
+        Cytotoxicity in normal tissue is more acceptable than in
+        other indications, but selectivity for cancer vs normal cells
+        and avoidance of serious metabolic liabilities is still critical.
+
+    Constraints:
+        - logP: 1.0–5.0 (broader range for diverse targets)
+        - MW: 150–600 Da (larger scaffolds common in targeted therapy)
+        - hERG IC50 ≥ 10 μM (cardiac safety remains essential)
+        - CYP3A4 IC50 ≥ 10 μM (DDI risk in polypharmacy patients)
+        - Therapeutic index ≥ 2.0 (narrower window acceptable)
+        - Protein binding ≤ 97% (free drug critical for efficacy)
+        - Aqueous solubility ≥ 1 μg/mL (IV formulation may supplement)
+
+    Use for: Small-molecule anti-cancer agents, kinase inhibitors.
+    """
+    return [
+        # Physicochemical
+        logP_range(min_logP=1.0, max_logP=5.0),
+        molecular_weight_range(min_mw=150.0, max_mw=600.0),
+        hydrogen_bond_donors_max(max_hbd=5),
+        hydrogen_bond_acceptors_max(max_hba=10),
+
+        # Cardiac safety
+        hERG_ic50_min(min_ic50_uM=10.0),
+
+        # Metabolic safety
+        cyp3a4_inhibition_min(min_ic50_uM=10.0),
+
+        # Efficacy/toxicity window
+        therapeutic_index_min(min_ti=2.0),
+
+        # Distribution
+        protein_binding_max(max_ppb_percent=97.0),
+        aqueous_solubility_min(min_sol_ug_mL=1.0),
+    ]
+
+
+def anti_infective_constraints() -> List[Constraint]:
+    """
+    Constraint set for anti-infective (antibacterial/antiviral) candidates.
+
+    Rationale:
+        Anti-infectives must penetrate bacterial membranes or viral
+        envelopes while avoiding toxicity to host cells. Gram-negative
+        coverage requires lower MW and moderate logP for outer membrane
+        penetration. Solubility and low protein binding maximise free
+        drug at the site of infection.
+
+    Constraints:
+        - logP: −1.0 to 3.0 (hydrophilic for Gram-negative penetration)
+        - MW: 150–500 Da (outer membrane porin size limit)
+        - HBD ≤ 5, HBA ≤ 10 (permeability)
+        - hERG IC50 ≥ 10 μM (cardiac safety)
+        - CYP3A4 IC50 ≥ 10 μM (DDI in co-infected patients)
+        - Protein binding ≤ 80% (free drug drives antimicrobial activity)
+        - Aqueous solubility ≥ 50 μg/mL (IV dosing requirements)
+        - Oral bioavailability ≥ 30% (step-down oral therapy)
+
+    Use for: Antibacterials, antifungals, antiparasitics.
+    """
+    return [
+        # Physicochemical (Gram-negative penetration)
+        logP_range(min_logP=-1.0, max_logP=3.0),
+        molecular_weight_range(min_mw=150.0, max_mw=500.0),
+        hydrogen_bond_donors_max(max_hbd=5),
+        hydrogen_bond_acceptors_max(max_hba=10),
+
+        # Cardiac safety
+        hERG_ic50_min(min_ic50_uM=10.0),
+
+        # Metabolic safety
+        cyp3a4_inhibition_min(min_ic50_uM=10.0),
+
+        # Distribution (free drug drives MIC)
+        protein_binding_max(max_ppb_percent=80.0),
+        aqueous_solubility_min(min_sol_ug_mL=50.0),
+
+        # Oral step-down
+        oral_bioavailability_min(min_F_percent=30.0),
+    ]
+
+
+def metabolic_disease_constraints() -> List[Constraint]:
+    """
+    Constraint set for metabolic disease (diabetes, obesity, dyslipidaemia)
+    drug candidates.
+
+    Rationale:
+        Metabolic disease agents are taken chronically by large patient
+        populations that often have polypharmacy. Long-term safety,
+        metabolic stability, reliable oral bioavailability, and
+        predictable pharmacokinetics are paramount.
+
+    Constraints:
+        - logP: 0.5–4.0 (moderate lipophilicity for oral absorption)
+        - MW: 150–500 Da (drug-like for oral therapy)
+        - HBD ≤ 5, HBA ≤ 10 (oral permeability)
+        - hERG IC50 ≥ 10 μM (cardiac safety in metabolic syndrome)
+        - CYP3A4 IC50 ≥ 10 μM (DDI — statins, antihypertensives common)
+        - Plasma half-life: 8–24 h (once-daily dosing compliance)
+        - Hepatic clearance ≤ 30 mL/min/kg (metabolic stability)
+        - Oral bioavailability ≥ 40% (predictable chronic exposure)
+        - Protein binding ≤ 95% (chronic dosing variability)
+        - Aqueous solubility ≥ 10 μg/mL
+
+    Use for: Anti-diabetics, GLP-1 analogues, SGLT2/DPP-4 inhibitors,
+             statins, fibrates, anti-obesity agents.
+    """
+    return [
+        # Physicochemical
+        logP_range(min_logP=0.5, max_logP=4.0),
+        molecular_weight_range(min_mw=150.0, max_mw=500.0),
+        hydrogen_bond_donors_max(max_hbd=5),
+        hydrogen_bond_acceptors_max(max_hba=10),
+
+        # Cardiac safety (metabolic syndrome elevates CV risk)
+        hERG_ic50_min(min_ic50_uM=10.0),
+
+        # Metabolic safety (polypharmacy population)
+        cyp3a4_inhibition_min(min_ic50_uM=10.0),
+        hepatic_clearance_max(max_CL_mL_min_kg=30.0),
+
+        # Pharmacokinetics (chronic dosing)
+        plasma_half_life_range(min_t_half_hours=8.0, max_t_half_hours=24.0),
+        oral_bioavailability_min(min_F_percent=40.0),
+
+        # Distribution
+        protein_binding_max(max_ppb_percent=95.0),
+        aqueous_solubility_min(min_sol_ug_mL=10.0),
     ]

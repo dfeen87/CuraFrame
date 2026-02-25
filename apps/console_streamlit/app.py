@@ -31,6 +31,9 @@ from cura_frame.constraints_library import (
     cns_drug_constraints,
     cardiology_oriented_constraints,
     cardiAnx_dual_domain_constraints,
+    oncology_constraints,
+    anti_infective_constraints,
+    metabolic_disease_constraints,
 )
 
 
@@ -73,6 +76,21 @@ BUNDLES = {
         "fn": cardiAnx_dual_domain_constraints,
         "description": "β₁-blocker / 5-HT₁ₐ hybrid design space (Krüger & Feeney, 2025)",
         "targets": "Heart-brain comorbidity agents"
+    },
+    "Oncology": {
+        "fn": oncology_constraints,
+        "description": "Anti-cancer constraints: logP, MW, hERG, CYP3A4, therapeutic index",
+        "targets": "Small-molecule anti-cancer agents, kinase inhibitors"
+    },
+    "Anti-Infective": {
+        "fn": anti_infective_constraints,
+        "description": "Antibacterial/antiviral constraints: Gram-negative penetration, low PPB, solubility",
+        "targets": "Antibiotics, antifungals, antiparasitics"
+    },
+    "Metabolic Disease": {
+        "fn": metabolic_disease_constraints,
+        "description": "Diabetes/metabolic syndrome: chronic dosing, CYP3A4 safety, oral bioavailability",
+        "targets": "Anti-diabetics, anti-obesity, lipid-lowering agents"
     },
 }
 
