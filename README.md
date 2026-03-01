@@ -945,6 +945,8 @@ CuraFrame's development has been informed by:
 
 Thank you to the scientific community for establishing the knowledge base that CuraFrame attempts to encode faithfully and transparently.
 
+I would like to acknowledge **Microsoft Copilot**, **Anthropic Claude**, and **Google Jules** for their meaningful assistance in refining concepts, improving clarity, and strengthening the overall quality of this work.
+
 ### Contributors
 
 - **Google Jules**: Interactive dashboard, calculator interface, and deployment configuration.
