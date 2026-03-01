@@ -935,6 +935,12 @@ If you believe a design is worth pursuing, CuraFrame will tell you **where it fa
 
 ---
 
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details
+
+---
+
 ## Acknowledgments
 
 CuraFrame's development has been informed by:
@@ -946,17 +952,3 @@ CuraFrame's development has been informed by:
 Thank you to the scientific community for establishing the knowledge base that CuraFrame attempts to encode faithfully and transparently.
 
 I would like to acknowledge **Microsoft Copilot**, **Anthropic Claude**, and **Google Jules** for their meaningful assistance in refining concepts, improving clarity, and strengthening the overall quality of this work.
-
-### Contributors
-
-- **Google Jules**: Interactive dashboard, calculator interface, and deployment configuration.
-- **Google Jules**: Pipelayer domain implementation.
-- **Claude Sonnet (Anthropic)**: AILEE pipeline code review and improvements for greater cohesion with the CuraFrame application.
-
----
-
-**Version**: 0.1.0  
-**Last Updated**: February 2025  
-**Maintainer**: Don Michael Feeney Jr. ([dfeen87@gmail.com](mailto:dfeen87@gmail.com))  
-**Repository**: [https://github.com/dfeen87/CuraFrame](https://github.com/dfeen87/CuraFrame)  
-**License**: MIT
