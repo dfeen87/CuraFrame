@@ -1,8 +1,5 @@
 # CuraFrame: Constraint-Driven Therapeutic Design Reasoning
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-
 > **📣 Update — February 2025:** The AILEE pipeline has been reviewed and improved for greater cohesion with the CuraFrame application.
 
 ---
@@ -937,7 +934,8 @@ If you believe a design is worth pursuing, CuraFrame will tell you **where it fa
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details
+This project is available for **non‑commercial use only** under the terms of the included LICENSE file.  
+Commercial use requires a separate paid license.
 
 ---
 
