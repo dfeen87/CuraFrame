@@ -398,10 +398,12 @@ class PipelayerGovernor:
         self,
         cfg: Optional[AileeConfig] = None,
         policy: Optional[PipelayerGovernancePolicy] = None,
+        max_event_log: int = 1000,
     ):
         self.policy = policy or PipelayerGovernancePolicy()
         self.cfg = cfg or default_pipelayer_config()
         self.pipeline = AileeTrustPipeline(self.cfg)
+        self.max_event_log = max_event_log
         self.event_log: List[Any] = []
 
     def evaluate(self, signals: PipelayerSignals) -> PipelayerDecisionResult:
@@ -465,6 +467,8 @@ class PipelayerGovernor:
             "reasons": list(reasons),
             "precautionary_flags": list(precautionary_flags),
         })
+        if len(self.event_log) > self.max_event_log:
+            self.event_log = self.event_log[-self.max_event_log:]
         logger.info(
             "PipelayerGovernor: %s | authorized=%s | score=%.3f | flags=%s",
             decision.decision_outcome.value,

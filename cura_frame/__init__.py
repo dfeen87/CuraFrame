@@ -11,6 +11,8 @@ boundaries.
 See docs/PHILOSOPHY.md and docs/ETHICAL_USE.md for guiding principles.
 """
 
+__version__ = "0.2.0"
+
 from .core import (
     CuraFrame,
     Constraint,

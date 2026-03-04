@@ -6,10 +6,12 @@ safety-critical constraints on hypothetical therapeutic candidates.
 It is NOT a drug discovery tool, molecule generator, or optimizer.
 """
 
-from dataclasses import dataclass, field
-from typing import Callable, Any, Dict, List, Optional, Protocol, Union
-from enum import Enum
+import copy
 import logging
+from collections import deque
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Callable, Any, Dict, List, Optional, Protocol, Union
 
 
 logger = logging.getLogger(__name__)
@@ -126,7 +128,7 @@ class Constraint:
             comparator=self.comparator,
             rationale=self.rationale,
             severity=self.severity,
-            provenance=self.provenance
+            provenance=copy.deepcopy(self.provenance)
         )
 
     def apply_modifier(self, modifier: Callable[["Constraint"], Any]) -> None:
@@ -412,7 +414,8 @@ class CuraFrame:
     def __init__(
         self,
         safety_constraints: List[Constraint],
-        name: Optional[str] = None
+        name: Optional[str] = None,
+        max_history: int = 1000,
     ):
         """
         Initialize CuraFrame with safety constraints.
@@ -420,11 +423,13 @@ class CuraFrame:
         Args:
             safety_constraints: List of non-negotiable safety limits
             name: Optional name for this framework instance (for logging)
+            max_history: Maximum number of evaluation results to retain in
+                history (default: 1000). Older entries are discarded.
         """
         self.name = name or "CuraFrame"
         self.safety_constraints = safety_constraints
         self.population_stratifier = PopulationStratification()
-        self.evaluation_history: List[EvaluationResult] = []
+        self.evaluation_history: deque = deque(maxlen=max_history)
         self._constraints_by_name: Dict[str, Constraint] = {}
         self._population_constraints_cache: Dict[Optional[str], List[Constraint]] = {}
 
@@ -629,7 +634,7 @@ class CuraFrame:
             List of EvaluationResults.
         """
         if candidate_name is None:
-            return self.evaluation_history
+            return list(self.evaluation_history)
 
         return [
             r for r in self.evaluation_history

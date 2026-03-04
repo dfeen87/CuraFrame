@@ -24,7 +24,7 @@ import os
 import secrets
 import sqlite3
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -58,6 +58,17 @@ _SECURE_COOKIES = os.environ.get("CURAFRAME_SECURE_COOKIES", "0").lower() in (
 # Minimum acceptable password length for new registrations
 _MIN_PASSWORD_LENGTH = 8
 
+# Maximum acceptable input lengths (to prevent DoS via extreme-length strings)
+_MAX_USERNAME_LENGTH = 64
+_MAX_EMAIL_LENGTH = 254
+_MAX_PASSWORD_LENGTH = 128
+
+# Username validation: 3–64 alphanumeric + underscore characters
+import re as _re
+_USERNAME_MIN_LENGTH = 3
+_USERNAME_RE = _re.compile(r"^[A-Za-z0-9_]+$")
+_EMAIL_RE = _re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
 # PBKDF2-HMAC-SHA256 iteration count (OWASP 2023 recommendation)
 _PBKDF2_ITERATIONS = 260_000
 
@@ -65,6 +76,11 @@ _PBKDF2_ITERATIONS = 260_000
 # If not set, a per-process random secret is used (tokens are invalidated on restart).
 JWT_SECRET: str = os.environ.get("JWT_SECRET", secrets.token_urlsafe(32))
 _JWT_ALGORITHM = "HS256"
+
+# JWT expiration window (hours). Override via CURAFRAME_JWT_EXPIRATION_HOURS.
+JWT_EXPIRATION_HOURS: int = int(
+    os.environ.get("CURAFRAME_JWT_EXPIRATION_HOURS", "24")
+)
 
 # ---------------------------------------------------------------------------
 # Database helpers
@@ -129,128 +145,130 @@ def _fetchall(conn, db_path: str, query: str, params: tuple = ()):
 def _init_db(db_path: str = DB_PATH) -> None:
     """Create the users and logs tables if they do not already exist."""
     conn = _get_connection(db_path)
-    if _is_postgres(db_path):
-        _execute(
-            conn,
-            db_path,
-            """
-            CREATE TABLE IF NOT EXISTS users (
-                id            BIGSERIAL PRIMARY KEY,
-                username      TEXT UNIQUE NOT NULL,
-                email         TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL
+    try:
+        if _is_postgres(db_path):
+            _execute(
+                conn,
+                db_path,
+                """
+                CREATE TABLE IF NOT EXISTS users (
+                    id            BIGSERIAL PRIMARY KEY,
+                    username      TEXT UNIQUE NOT NULL,
+                    email         TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL
+                )
+                """,
             )
-            """,
-        )
-        _execute(
-            conn,
-            db_path,
-            """
-            CREATE TABLE IF NOT EXISTS logs (
-                id                      BIGSERIAL PRIMARY KEY,
-                username                TEXT NOT NULL,
-                timestamp               TEXT NOT NULL,
-                logP                    DOUBLE PRECISION,
-                hERG_IC50               DOUBLE PRECISION,
-                beta1_selectivity       DOUBLE PRECISION,
-                molecular_weight        DOUBLE PRECISION,
-                polar_surface_area      DOUBLE PRECISION,
-                hydrogen_bond_donors    DOUBLE PRECISION,
-                hydrogen_bond_acceptors DOUBLE PRECISION,
-                Kd_5HT1A                DOUBLE PRECISION,
-                Kd_5HT2A                DOUBLE PRECISION,
-                Kd_D2                   DOUBLE PRECISION,
-                plasma_half_life        DOUBLE PRECISION,
-                bundle                  TEXT,
-                status                  TEXT
+            _execute(
+                conn,
+                db_path,
+                """
+                CREATE TABLE IF NOT EXISTS logs (
+                    id                      BIGSERIAL PRIMARY KEY,
+                    username                TEXT NOT NULL,
+                    timestamp               TEXT NOT NULL,
+                    logP                    DOUBLE PRECISION,
+                    hERG_IC50               DOUBLE PRECISION,
+                    beta1_selectivity       DOUBLE PRECISION,
+                    molecular_weight        DOUBLE PRECISION,
+                    polar_surface_area      DOUBLE PRECISION,
+                    hydrogen_bond_donors    DOUBLE PRECISION,
+                    hydrogen_bond_acceptors DOUBLE PRECISION,
+                    Kd_5HT1A                DOUBLE PRECISION,
+                    Kd_5HT2A                DOUBLE PRECISION,
+                    Kd_D2                   DOUBLE PRECISION,
+                    plasma_half_life        DOUBLE PRECISION,
+                    bundle                  TEXT,
+                    status                  TEXT
+                )
+                """,
             )
-            """,
-        )
-        _execute(
-            conn,
-            db_path,
-            """
-            CREATE TABLE IF NOT EXISTS form_submissions (
-                id                      BIGSERIAL PRIMARY KEY,
-                username                TEXT NOT NULL,
-                timestamp               TEXT NOT NULL,
-                logP                    DOUBLE PRECISION,
-                hERG_IC50               DOUBLE PRECISION,
-                beta1_selectivity       DOUBLE PRECISION,
-                molecular_weight        DOUBLE PRECISION,
-                polar_surface_area      DOUBLE PRECISION,
-                hydrogen_bond_donors    DOUBLE PRECISION,
-                hydrogen_bond_acceptors DOUBLE PRECISION,
-                Kd_5HT1A                DOUBLE PRECISION,
-                Kd_5HT2A                DOUBLE PRECISION,
-                Kd_D2                   DOUBLE PRECISION,
-                plasma_half_life        DOUBLE PRECISION,
-                results_json            TEXT
+            _execute(
+                conn,
+                db_path,
+                """
+                CREATE TABLE IF NOT EXISTS form_submissions (
+                    id                      BIGSERIAL PRIMARY KEY,
+                    username                TEXT NOT NULL,
+                    timestamp               TEXT NOT NULL,
+                    logP                    DOUBLE PRECISION,
+                    hERG_IC50               DOUBLE PRECISION,
+                    beta1_selectivity       DOUBLE PRECISION,
+                    molecular_weight        DOUBLE PRECISION,
+                    polar_surface_area      DOUBLE PRECISION,
+                    hydrogen_bond_donors    DOUBLE PRECISION,
+                    hydrogen_bond_acceptors DOUBLE PRECISION,
+                    Kd_5HT1A                DOUBLE PRECISION,
+                    Kd_5HT2A                DOUBLE PRECISION,
+                    Kd_D2                   DOUBLE PRECISION,
+                    plasma_half_life        DOUBLE PRECISION,
+                    results_json            TEXT
+                )
+                """,
             )
-            """,
-        )
-    else:
-        _execute(
-            conn,
-            db_path,
-            """
-            CREATE TABLE IF NOT EXISTS users (
-                id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                username      TEXT    UNIQUE NOT NULL,
-                email         TEXT    UNIQUE NOT NULL,
-                password_hash TEXT           NOT NULL
+        else:
+            _execute(
+                conn,
+                db_path,
+                """
+                CREATE TABLE IF NOT EXISTS users (
+                    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username      TEXT    UNIQUE NOT NULL,
+                    email         TEXT    UNIQUE NOT NULL,
+                    password_hash TEXT           NOT NULL
+                )
+                """,
             )
-            """,
-        )
-        _execute(
-            conn,
-            db_path,
-            """
-            CREATE TABLE IF NOT EXISTS logs (
-                id                    INTEGER PRIMARY KEY AUTOINCREMENT,
-                username              TEXT    NOT NULL,
-                timestamp             TEXT    NOT NULL,
-                logP                  REAL,
-                hERG_IC50             REAL,
-                beta1_selectivity     REAL,
-                molecular_weight      REAL,
-                polar_surface_area    REAL,
-                hydrogen_bond_donors  REAL,
-                hydrogen_bond_acceptors REAL,
-                Kd_5HT1A              REAL,
-                Kd_5HT2A              REAL,
-                Kd_D2                 REAL,
-                plasma_half_life      REAL,
-                bundle                TEXT,
-                status                TEXT
+            _execute(
+                conn,
+                db_path,
+                """
+                CREATE TABLE IF NOT EXISTS logs (
+                    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username              TEXT    NOT NULL,
+                    timestamp             TEXT    NOT NULL,
+                    logP                  REAL,
+                    hERG_IC50             REAL,
+                    beta1_selectivity     REAL,
+                    molecular_weight      REAL,
+                    polar_surface_area    REAL,
+                    hydrogen_bond_donors  REAL,
+                    hydrogen_bond_acceptors REAL,
+                    Kd_5HT1A              REAL,
+                    Kd_5HT2A              REAL,
+                    Kd_D2                 REAL,
+                    plasma_half_life      REAL,
+                    bundle                TEXT,
+                    status                TEXT
+                )
+                """,
             )
-            """,
-        )
-        _execute(
-            conn,
-            db_path,
-            """
-            CREATE TABLE IF NOT EXISTS form_submissions (
-                id                      INTEGER PRIMARY KEY AUTOINCREMENT,
-                username                TEXT    NOT NULL,
-                timestamp               TEXT    NOT NULL,
-                logP                    REAL,
-                hERG_IC50               REAL,
-                beta1_selectivity       REAL,
-                molecular_weight        REAL,
-                polar_surface_area      REAL,
-                hydrogen_bond_donors    REAL,
-                hydrogen_bond_acceptors REAL,
-                Kd_5HT1A                REAL,
-                Kd_5HT2A                REAL,
-                Kd_D2                   REAL,
-                plasma_half_life        REAL,
-                results_json            TEXT
+            _execute(
+                conn,
+                db_path,
+                """
+                CREATE TABLE IF NOT EXISTS form_submissions (
+                    id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username                TEXT    NOT NULL,
+                    timestamp               TEXT    NOT NULL,
+                    logP                    REAL,
+                    hERG_IC50               REAL,
+                    beta1_selectivity       REAL,
+                    molecular_weight        REAL,
+                    polar_surface_area      REAL,
+                    hydrogen_bond_donors    REAL,
+                    hydrogen_bond_acceptors REAL,
+                    Kd_5HT1A                REAL,
+                    Kd_5HT2A                REAL,
+                    Kd_D2                   REAL,
+                    plasma_half_life        REAL,
+                    results_json            TEXT
+                )
+                """,
             )
-            """,
-        )
-    conn.commit()
-    conn.close()
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def _hash_password(password: str) -> str:
@@ -289,14 +307,24 @@ def _verify_password(password: str, stored_hash: str) -> bool:
 
 def _create_jwt(username: str) -> str:
     """Return a signed JWT containing the username as the ``sub`` claim."""
-    payload = {"sub": username}
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": username,
+        "iat": now,
+        "exp": now + timedelta(hours=JWT_EXPIRATION_HOURS),
+    }
     return jwt.encode(payload, JWT_SECRET, algorithm=_JWT_ALGORITHM)
 
 
 def _decode_jwt(token: str) -> Optional[str]:
-    """Decode *token* and return the username, or ``None`` if invalid."""
+    """Decode *token* and return the username, or ``None`` if invalid/expired."""
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[_JWT_ALGORITHM])
+        payload = jwt.decode(
+            token,
+            JWT_SECRET,
+            algorithms=[_JWT_ALGORITHM],
+            options={"verify_exp": True},
+        )
         return payload.get("sub")
     except JWTError:
         return None
@@ -332,6 +360,13 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:; "
+            "frame-ancestors 'none';"
+        )
         return response
 
     # ------------------------------------------------------------------
@@ -342,6 +377,16 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
         if session:
             return _decode_jwt(session)
         return None
+
+    def _generate_csrf_token() -> str:
+        """Generate a new CSRF token."""
+        return secrets.token_urlsafe(32)
+
+    def _validate_csrf(request_token: Optional[str], cookie_token: Optional[str]) -> bool:
+        """Validate CSRF using double-submit cookie pattern."""
+        if not request_token or not cookie_token:
+            return False
+        return hmac.compare_digest(request_token, cookie_token)
 
     # ------------------------------------------------------------------
     # Routes
@@ -576,31 +621,33 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
             for r in results
         ])
         conn = _get_connection(resolved_db)
-        _execute(
-            conn,
-            resolved_db,
-            """
-            INSERT INTO form_submissions (
-                username, timestamp,
-                logP, hERG_IC50, beta1_selectivity,
-                molecular_weight, polar_surface_area,
-                hydrogen_bond_donors, hydrogen_bond_acceptors,
-                Kd_5HT1A, Kd_5HT2A, Kd_D2, plasma_half_life,
-                results_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                user,
-                datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
-                logP, hERG_IC50, beta1_selectivity,
-                molecular_weight, polar_surface_area,
-                hydrogen_bond_donors, hydrogen_bond_acceptors,
-                Kd_5HT1A, Kd_5HT2A, Kd_D2, plasma_half_life,
-                results_json,
-            ),
-        )
-        conn.commit()
-        conn.close()
+        try:
+            _execute(
+                conn,
+                resolved_db,
+                """
+                INSERT INTO form_submissions (
+                    username, timestamp,
+                    logP, hERG_IC50, beta1_selectivity,
+                    molecular_weight, polar_surface_area,
+                    hydrogen_bond_donors, hydrogen_bond_acceptors,
+                    Kd_5HT1A, Kd_5HT2A, Kd_D2, plasma_half_life,
+                    results_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    user,
+                    datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+                    logP, hERG_IC50, beta1_selectivity,
+                    molecular_weight, polar_surface_area,
+                    hydrogen_bond_donors, hydrogen_bond_acceptors,
+                    Kd_5HT1A, Kd_5HT2A, Kd_D2, plasma_half_life,
+                    results_json,
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
 
         return templates.TemplateResponse(
             request,
@@ -633,33 +680,35 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
             return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
 
         conn = _get_connection(resolved_db)
-        _execute(
-            conn,
-            resolved_db,
-            """
-            INSERT INTO logs (
-                username, timestamp,
-                logP, hERG_IC50, beta1_selectivity,
-                molecular_weight, polar_surface_area,
-                hydrogen_bond_donors, hydrogen_bond_acceptors,
-                Kd_5HT1A, Kd_5HT2A, Kd_D2, plasma_half_life,
-                bundle, status
+        try:
+            _execute(
+                conn,
+                resolved_db,
+                """
+                INSERT INTO logs (
+                    username, timestamp,
+                    logP, hERG_IC50, beta1_selectivity,
+                    molecular_weight, polar_surface_area,
+                    hydrogen_bond_donors, hydrogen_bond_acceptors,
+                    Kd_5HT1A, Kd_5HT2A, Kd_D2, plasma_half_life,
+                    bundle, status
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    user,
+                    datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+                    logP, hERG_IC50, beta1_selectivity,
+                    molecular_weight, polar_surface_area,
+                    hydrogen_bond_donors, hydrogen_bond_acceptors,
+                    Kd_5HT1A, Kd_5HT2A, Kd_D2, plasma_half_life,
+                    bundle,
+                    status_val,
+                ),
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                user,
-                datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
-                logP, hERG_IC50, beta1_selectivity,
-                molecular_weight, polar_surface_area,
-                hydrogen_bond_donors, hydrogen_bond_acceptors,
-                Kd_5HT1A, Kd_5HT2A, Kd_D2, plasma_half_life,
-                bundle,
-                status_val,
-            ),
-        )
-        conn.commit()
-        conn.close()
+            conn.commit()
+        finally:
+            conn.close()
         return RedirectResponse("/logs", status_code=status.HTTP_302_FOUND)
 
     @app.get("/logs", response_class=HTMLResponse)
@@ -672,23 +721,25 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
             return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
 
         conn = _get_connection(resolved_db)
-        rows = _fetchall(
-            conn,
-            resolved_db,
-            """
-            SELECT id, timestamp,
-                   logP, hERG_IC50, beta1_selectivity,
-                   molecular_weight, polar_surface_area,
-                   hydrogen_bond_donors, hydrogen_bond_acceptors,
-                   Kd_5HT1A, Kd_5HT2A, Kd_D2, plasma_half_life,
-                   bundle, status
-            FROM logs
-            WHERE username = ?
-            ORDER BY id DESC
-            """,
-            (user,),
-        )
-        conn.close()
+        try:
+            rows = _fetchall(
+                conn,
+                resolved_db,
+                """
+                SELECT id, timestamp,
+                       logP, hERG_IC50, beta1_selectivity,
+                       molecular_weight, polar_surface_area,
+                       hydrogen_bond_donors, hydrogen_bond_acceptors,
+                       Kd_5HT1A, Kd_5HT2A, Kd_D2, plasma_half_life,
+                       bundle, status
+                FROM logs
+                WHERE username = ?
+                ORDER BY id DESC
+                """,
+                (user,),
+            )
+        finally:
+            conn.close()
         logs = rows if _is_postgres(resolved_db) else [dict(r) for r in rows]
         return templates.TemplateResponse(
             request,
@@ -700,9 +751,15 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
 
     @app.get("/register", response_class=HTMLResponse)
     async def register_get(request: Request):
-        return templates.TemplateResponse(
-            request, "register.html", {"error": None}
+        csrf_token = _generate_csrf_token()
+        response = templates.TemplateResponse(
+            request, "register.html", {"error": None, "csrf_token": csrf_token}
         )
+        response.set_cookie(
+            "csrf_token", csrf_token, httponly=False, samesite="lax",
+            secure=_SECURE_COOKIES
+        )
+        return response
 
     @app.post("/register", response_class=HTMLResponse)
     async def register_post(
@@ -710,20 +767,66 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
         username: str = Form(...),
         email: str = Form(...),
         password: str = Form(...),
+        csrf_token: str = Form(default=""),
+        csrf_token_cookie: Optional[str] = Cookie(default=None, alias="csrf_token"),
     ):
+        if not _validate_csrf(csrf_token, csrf_token_cookie):
+            return templates.TemplateResponse(
+                request,
+                "register.html",
+                {"error": "Invalid or missing CSRF token.", "csrf_token": ""},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
         if not username or not email or not password:
             return templates.TemplateResponse(
                 request,
                 "register.html",
-                {"error": "All fields are required."},
+                {"error": "All fields are required.", "csrf_token": csrf_token},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
+        username = username.strip()
+        email = email.strip()
+
+        # Username validation
+        if not (_USERNAME_MIN_LENGTH <= len(username) <= _MAX_USERNAME_LENGTH):
+            return templates.TemplateResponse(
+                request,
+                "register.html",
+                {"error": f"Username must be {_USERNAME_MIN_LENGTH}–{_MAX_USERNAME_LENGTH} characters.", "csrf_token": csrf_token},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        if not _USERNAME_RE.match(username):
+            return templates.TemplateResponse(
+                request,
+                "register.html",
+                {"error": "Username may only contain letters, digits, and underscores.", "csrf_token": csrf_token},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Email validation
+        if len(email) > _MAX_EMAIL_LENGTH or not _EMAIL_RE.match(email):
+            return templates.TemplateResponse(
+                request,
+                "register.html",
+                {"error": "Invalid email address.", "csrf_token": csrf_token},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Password validation
         if len(password) < _MIN_PASSWORD_LENGTH:
             return templates.TemplateResponse(
                 request,
                 "register.html",
-                {"error": f"Password must be at least {_MIN_PASSWORD_LENGTH} characters."},
+                {"error": f"Password must be at least {_MIN_PASSWORD_LENGTH} characters.", "csrf_token": csrf_token},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        if len(password) > _MAX_PASSWORD_LENGTH:
+            return templates.TemplateResponse(
+                request,
+                "register.html",
+                {"error": f"Password must be at most {_MAX_PASSWORD_LENGTH} characters.", "csrf_token": csrf_token},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -737,49 +840,66 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
                 conn,
                 resolved_db,
                 "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
-                (username.strip(), email.strip(), _hash_password(password)),
+                (username, email, _hash_password(password)),
             )
             conn.commit()
         except integrity_errors:
-            conn.close()
             return templates.TemplateResponse(
                 request,
                 "register.html",
-                {"error": "Username or email is already registered."},
+                {"error": "Username or email is already registered.", "csrf_token": csrf_token},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
-        else:
+        finally:
             conn.close()
-            return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
 
     # ---- Login -----------------------------------------------------------
 
     @app.get("/login", response_class=HTMLResponse)
     async def login_get(request: Request):
-        return templates.TemplateResponse(
-            request, "login.html", {"error": None}
+        csrf_token = _generate_csrf_token()
+        response = templates.TemplateResponse(
+            request, "login.html", {"error": None, "csrf_token": csrf_token}
         )
+        response.set_cookie(
+            "csrf_token", csrf_token, httponly=False, samesite="lax",
+            secure=_SECURE_COOKIES
+        )
+        return response
 
     @app.post("/login", response_class=HTMLResponse)
     async def login_post(
         request: Request,
         username: str = Form(...),
         password: str = Form(...),
+        csrf_token: str = Form(default=""),
+        csrf_token_cookie: Optional[str] = Cookie(default=None, alias="csrf_token"),
     ):
+        if not _validate_csrf(csrf_token, csrf_token_cookie):
+            return templates.TemplateResponse(
+                request,
+                "login.html",
+                {"error": "Invalid or missing CSRF token.", "csrf_token": ""},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
         conn = _get_connection(resolved_db)
-        row = _fetchone(
-            conn,
-            resolved_db,
-            "SELECT username, password_hash FROM users WHERE username = ?",
-            (username.strip(),),
-        )
-        conn.close()
+        try:
+            row = _fetchone(
+                conn,
+                resolved_db,
+                "SELECT username, password_hash FROM users WHERE username = ?",
+                (username.strip(),),
+            )
+        finally:
+            conn.close()
 
         if row is None or not _verify_password(password, row["password_hash"]):
             return templates.TemplateResponse(
                 request,
                 "login.html",
-                {"error": "Invalid username or password."},
+                {"error": "Invalid username or password.", "csrf_token": csrf_token},
                 status_code=status.HTTP_401_UNAUTHORIZED,
             )
 

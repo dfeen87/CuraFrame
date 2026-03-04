@@ -28,7 +28,10 @@ def less_than(value: Any, threshold: Any) -> bool:
 
     Raises:
         TypeError: If value and threshold cannot be compared
+        ValueError: If value is NaN
     """
+    if isinstance(value, float) and math.isnan(value):
+        raise ValueError(f"Cannot compare NaN value against threshold {threshold}")
     return value < threshold
 
 
@@ -38,7 +41,10 @@ def less_than_or_equal(value: Any, threshold: Any) -> bool:
 
     Raises:
         TypeError: If value and threshold cannot be compared
+        ValueError: If value is NaN
     """
+    if isinstance(value, float) and math.isnan(value):
+        raise ValueError(f"Cannot compare NaN value against threshold {threshold}")
     return value <= threshold
 
 
@@ -48,7 +54,10 @@ def greater_than(value: Any, threshold: Any) -> bool:
 
     Raises:
         TypeError: If value and threshold cannot be compared
+        ValueError: If value is NaN
     """
+    if isinstance(value, float) and math.isnan(value):
+        raise ValueError(f"Cannot compare NaN value against threshold {threshold}")
     return value > threshold
 
 
@@ -58,7 +67,10 @@ def greater_than_or_equal(value: Any, threshold: Any) -> bool:
 
     Raises:
         TypeError: If value and threshold cannot be compared
+        ValueError: If value is NaN
     """
+    if isinstance(value, float) and math.isnan(value):
+        raise ValueError(f"Cannot compare NaN value against threshold {threshold}")
     return value >= threshold
 
 
@@ -504,6 +516,8 @@ def probabilistic_satisfaction(
         return False  # 0% probability
 
     # Uniform distribution: fraction below threshold
+    if lower == upper:
+        return lower <= threshold
     prob_satisfied = (threshold - lower) / (upper - lower)
     return prob_satisfied >= confidence_level
 
