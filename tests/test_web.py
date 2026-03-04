@@ -14,6 +14,35 @@ from fastapi.testclient import TestClient
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _get_csrf_token(client: TestClient, path: str) -> str:
+    """GET *path* to receive the CSRF cookie, then return its value."""
+    client.get(path)
+    return client.cookies.get("csrf_token", "")
+
+
+def _register(client: TestClient, username: str, email: str, password: str):
+    """Register via the CSRF-protected /register endpoint."""
+    csrf = _get_csrf_token(client, "/register")
+    return client.post(
+        "/register",
+        data={"username": username, "email": email, "password": password,
+              "csrf_token": csrf},
+    )
+
+
+def _login(client: TestClient, username: str, password: str):
+    """Log in via the CSRF-protected /login endpoint."""
+    csrf = _get_csrf_token(client, "/login")
+    return client.post(
+        "/login",
+        data={"username": username, "password": password, "csrf_token": csrf},
+    )
+
+
+# ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
@@ -35,11 +64,8 @@ def client(app):
 @pytest.fixture()
 def registered_client(client):
     """A TestClient that already has a logged-in session."""
-    client.post(
-        "/register",
-        data={"username": "alice", "email": "alice@example.com", "password": "secret01"},
-    )
-    client.post("/login", data={"username": "alice", "password": "secret01"})
+    _register(client, "alice", "alice@example.com", "secret01")
+    _login(client, "alice", "secret01")
     return client
 
 
@@ -56,59 +82,36 @@ class TestRegistration:
 
     def test_register_creates_new_user_and_redirects(self, client):
         """POST /register with valid data creates a user and redirects to /login."""
-        response = client.post(
-            "/register",
-            data={
-                "username": "bob",
-                "email": "bob@example.com",
-                "password": "password123",
-            },
-        )
+        response = _register(client, "bob", "bob@example.com", "password123")
         # After redirect-follow the final page should be the login page
         assert response.status_code == 200
         assert b"Log In" in response.content or b"login" in response.content.lower()
 
     def test_register_prevents_duplicate_username(self, client):
         """Registering the same username twice returns a 400 with an error message."""
-        data = {"username": "carol", "email": "carol@example.com", "password": "password1"}
-        client.post("/register", data=data)
+        _register(client, "carol", "carol@example.com", "password1")
 
         # Second attempt with same username
-        response = client.post(
-            "/register",
-            data={"username": "carol", "email": "carol2@example.com", "password": "password1"},
-        )
+        response = _register(client, "carol", "carol2@example.com", "password1")
         assert response.status_code == 400
         assert b"already" in response.content.lower()
 
     def test_register_prevents_duplicate_email(self, client):
         """Registering the same email twice returns a 400 with an error message."""
-        client.post(
-            "/register",
-            data={"username": "dave", "email": "shared@example.com", "password": "password1"},
-        )
-        response = client.post(
-            "/register",
-            data={"username": "dave2", "email": "shared@example.com", "password": "password1"},
-        )
+        _register(client, "dave", "shared@example.com", "password1")
+        response = _register(client, "dave2", "shared@example.com", "password1")
         assert response.status_code == 400
         assert b"already" in response.content.lower()
 
     def test_register_requires_all_fields(self, client):
         """Missing a required field returns a 400 or 422."""
-        response = client.post(
-            "/register",
-            data={"username": "eve", "email": "", "password": "password1"},
-        )
+        response = _register(client, "eve", "", "password1")
         # FastAPI form validation or our own check should catch this
         assert response.status_code in (400, 422)
 
     def test_register_rejects_short_password(self, client):
         """Passwords shorter than 8 characters are rejected with a 400."""
-        response = client.post(
-            "/register",
-            data={"username": "shortpw", "email": "shortpw@example.com", "password": "abc"},
-        )
+        response = _register(client, "shortpw", "shortpw@example.com", "abc")
         assert response.status_code == 400
         assert b"8" in response.content  # error message mentions the minimum length
 
@@ -124,25 +127,15 @@ class TestLogin:
         assert "text/html" in response.headers["content-type"]
 
     def test_login_with_valid_credentials_redirects_to_dashboard(self, client):
-        client.post(
-            "/register",
-            data={"username": "frank", "email": "frank@example.com", "password": "password1"},
-        )
-        response = client.post(
-            "/login", data={"username": "frank", "password": "password1"}
-        )
+        _register(client, "frank", "frank@example.com", "password1")
+        response = _login(client, "frank", "password1")
         assert response.status_code == 200
         # Should end up on the dashboard
         assert b"Dashboard" in response.content or b"Welcome" in response.content
 
     def test_login_with_wrong_password_returns_401(self, client):
-        client.post(
-            "/register",
-            data={"username": "grace", "email": "grace@example.com", "password": "rightpass"},
-        )
-        response = client.post(
-            "/login", data={"username": "grace", "password": "wrongpass"}
-        )
+        _register(client, "grace", "grace@example.com", "rightpass")
+        response = _login(client, "grace", "wrongpass")
         assert response.status_code == 401
         assert b"Invalid" in response.content
 
@@ -385,12 +378,12 @@ class TestLogs:
         client_b = TestClient(app, follow_redirects=True)
 
         # Register and log in as user A
-        client_a.post("/register", data={"username": "ua", "email": "ua@x.com", "password": "password1"})
-        client_a.post("/login", data={"username": "ua", "password": "password1"})
+        _register(client_a, "user_a", "user_a@x.com", "password1")
+        _login(client_a, "user_a", "password1")
 
         # Register and log in as user B
-        client_b.post("/register", data={"username": "ub", "email": "ub@x.com", "password": "password1"})
-        client_b.post("/login", data={"username": "ub", "password": "password1"})
+        _register(client_b, "user_b", "user_b@x.com", "password1")
+        _login(client_b, "user_b", "password1")
 
         # User A records a log
         client_a.post(
@@ -535,15 +528,15 @@ class TestAllBundlesForm:
         db_path = str(tmp_path / "form_test.db")
         application = create_app(db_path=db_path)
         c = TestClient(application, follow_redirects=True)
-        c.post("/register", data={"username": "u1", "email": "u1@x.com", "password": "password1"})
-        c.post("/login", data={"username": "u1", "password": "password1"})
+        _register(c, "user1", "user1@x.com", "password1")
+        _login(c, "user1", "password1")
         c.post("/form", data={"logP": "2.5", "hERG_IC50": "15.0"})
 
         conn = sqlite3.connect(db_path)
         rows = conn.execute("SELECT username, logP, results_json FROM form_submissions").fetchall()
         conn.close()
         assert len(rows) == 1
-        assert rows[0][0] == "u1"
+        assert rows[0][0] == "user1"
         assert rows[0][1] == 2.5
         assert "core-safety" in rows[0][2].lower() or "Core Safety" in rows[0][2]
 
@@ -557,21 +550,21 @@ class TestAllBundlesForm:
         application = create_app(db_path=db_path)
 
         c1 = TestClient(application, follow_redirects=True)
-        c1.post("/register", data={"username": "ua", "email": "ua@x.com", "password": "password1"})
-        c1.post("/login", data={"username": "ua", "password": "password1"})
+        _register(c1, "user_a", "user_a@x.com", "password1")
+        _login(c1, "user_a", "password1")
         c1.post("/form", data={"logP": "1.0"})
 
         c2 = TestClient(application, follow_redirects=True)
-        c2.post("/register", data={"username": "ub", "email": "ub@x.com", "password": "password1"})
-        c2.post("/login", data={"username": "ub", "password": "password1"})
+        _register(c2, "user_b", "user_b@x.com", "password1")
+        _login(c2, "user_b", "password1")
         # user b has not submitted the form
 
         conn = sqlite3.connect(db_path)
         ua_rows = conn.execute(
-            "SELECT username FROM form_submissions WHERE username=?", ("ua",)
+            "SELECT username FROM form_submissions WHERE username=?", ("user_a",)
         ).fetchall()
         ub_rows = conn.execute(
-            "SELECT username FROM form_submissions WHERE username=?", ("ub",)
+            "SELECT username FROM form_submissions WHERE username=?", ("user_b",)
         ).fetchall()
         conn.close()
         assert len(ua_rows) == 1
@@ -634,17 +627,16 @@ class TestJWTAuthentication:
         from jose import jwt as jose_jwt
         from apps.web.main import JWT_SECRET, _JWT_ALGORITHM
 
-        client.post(
-            "/register",
-            data={"username": "jwtuser", "email": "jwt@example.com", "password": "password1"},
-        )
+        _register(client, "jwtuser", "jwt@example.com", "password1")
         # Use a raw client without follow_redirects to inspect Set-Cookie header
         from fastapi.testclient import TestClient
         from apps.web.main import create_app
         raw_client = TestClient(client.app, follow_redirects=False)
 
+        csrf = _get_csrf_token(raw_client, "/login")
         response = raw_client.post(
-            "/login", data={"username": "jwtuser", "password": "password1"}
+            "/login", data={"username": "jwtuser", "password": "password1",
+                            "csrf_token": csrf}
         )
         assert response.status_code in (302, 307)
         cookie_value = response.cookies.get("session")
@@ -677,12 +669,18 @@ class TestJWTAuthentication:
         """When JWT_SECRET is set, it is used to sign tokens."""
         import importlib
         import apps.web.main as main_module
+        from datetime import datetime, timezone, timedelta
 
         monkeypatch.setenv("JWT_SECRET", "my-test-secret-value")
         # Re-read the module-level constant (it is read at import time,
         # so we exercise the helper directly with the known secret).
         from jose import jwt as jose_jwt
-        token = jose_jwt.encode({"sub": "envuser"}, "my-test-secret-value", algorithm="HS256")
+        now = datetime.now(timezone.utc)
+        token = jose_jwt.encode(
+            {"sub": "envuser", "iat": now, "exp": now + timedelta(hours=24)},
+            "my-test-secret-value",
+            algorithm="HS256",
+        )
         from apps.web.main import _decode_jwt
         # Temporarily patch the module secret to the env value
         original = main_module.JWT_SECRET

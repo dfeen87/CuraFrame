@@ -27,6 +27,12 @@ from .constraints_library import (
 )
 
 
+_EXIT_CODES = {
+    "accepted": 0,
+    "rejected": 1,
+    "indeterminate": 2,
+}
+
 BUNDLE_REGISTRY = {
     "core-safety": core_safety_constraints,
     "lipinski": lipinski_rule_of_five,
@@ -215,11 +221,6 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     else:
         print(format_result_text(result))
 
-    _EXIT_CODES = {
-        "accepted": 0,
-        "rejected": 1,
-        "indeterminate": 2,
-    }
     return _EXIT_CODES.get(result.status.value, 1)
 
 
