@@ -6,12 +6,12 @@ safety-critical constraints on hypothetical therapeutic candidates.
 It is NOT a drug discovery tool, molecule generator, or optimizer.
 """
 
-from dataclasses import dataclass, field
-from typing import Callable, Any, Dict, List, Optional, Protocol, Union
-from collections import deque
-from enum import Enum
 import copy
 import logging
+from collections import deque
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Callable, Any, Dict, List, Optional, Protocol, Union
 
 
 logger = logging.getLogger(__name__)
