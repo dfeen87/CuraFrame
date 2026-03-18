@@ -6,12 +6,14 @@ safety-critical constraints on hypothetical therapeutic candidates.
 It is NOT a drug discovery tool, molecule generator, or optimizer.
 """
 
+from __future__ import annotations
+
 import copy
 import logging
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Any, Dict, List, Optional, Protocol, Union
+from typing import Callable, Any, Dict, Generic, List, Optional, Protocol, TypeVar, Union
 
 
 logger = logging.getLogger(__name__)
@@ -80,8 +82,11 @@ class Provenance:
         return self.confidence < threshold
 
 
+T = TypeVar("T")
+
+
 @dataclass
-class Constraint:
+class Constraint(Generic[T]):
     """
     Represents a single evaluative boundary.
 
@@ -98,8 +103,8 @@ class Constraint:
         provenance: Source and confidence metadata (optional)
     """
     name: str
-    threshold: Any
-    comparator: Callable[[Any, Any], bool]
+    threshold: T
+    comparator: Callable[[Any, T], bool]
     rationale: str
     severity: Severity = Severity.CRITICAL
     provenance: Optional[Provenance] = None
@@ -120,7 +125,7 @@ class Constraint:
                 f"{type(self.threshold).__name__} in constraint '{self.name}'"
             ) from e
 
-    def copy(self) -> "Constraint":
+    def copy(self) -> "Constraint[T]":
         """Deep copy for population stratification."""
         return Constraint(
             name=self.name,
@@ -131,7 +136,7 @@ class Constraint:
             provenance=copy.deepcopy(self.provenance)
         )
 
-    def apply_modifier(self, modifier: Callable[["Constraint"], Any]) -> None:
+    def apply_modifier(self, modifier: Callable[["Constraint[T]"], T]) -> None:
         """
         Apply population-specific adjustment to threshold.
 

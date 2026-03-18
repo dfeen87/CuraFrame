@@ -13,7 +13,6 @@ from typing import Optional, Dict, Any, List
 from cura_frame.db import (
     is_postgres as _is_postgres,
     get_connection as _get_connection,
-    adapt_query as _adapt_query,
     execute as _execute,
     fetchone as _fetchone,
     fetchall as _fetchall,

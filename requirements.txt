@@ -8,3 +8,7 @@ httpx
 -e .
 psycopg[binary]
 python-jose[cryptography]
+psycopg-pool
+passlib[argon2]
+SQLAlchemy>=2,<3
+alembic

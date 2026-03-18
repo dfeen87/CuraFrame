@@ -81,13 +81,6 @@
       <div class="form-group">
         <label for="bundle">Constraint Bundle</label>
         <select id="bundle" name="bundle">
-          {% set bundles = [
-            ("core-safety",  "Core Safety"),
-            ("lipinski",     "Lipinski Ro5"),
-            ("cns",          "CNS Constraints"),
-            ("cardiology",   "Cardiology-Oriented"),
-            ("cardianx",     "CardiAnx Dual-Domain"),
-          ] %}
           {% for value, label in bundles %}
           <option value="{{ value }}"
             {% if bundle is defined and bundle == value %}selected{% endif %}>

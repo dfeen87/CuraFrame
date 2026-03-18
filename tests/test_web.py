@@ -601,22 +601,6 @@ class TestNavigationMenu:
 # Database adapter helpers
 # ---------------------------------------------------------------------------
 
-class TestDatabaseAdapterHelpers:
-    def test_postgres_query_adaptation_uses_psycopg_placeholders(self):
-        from apps.web.main import _adapt_query
-
-        query = "SELECT * FROM users WHERE username = ? AND email = ?"
-        adapted = _adapt_query(query, "postgresql://localhost:5432/curaframe")
-        assert adapted == "SELECT * FROM users WHERE username = %s AND email = %s"
-
-    def test_sqlite_query_adaptation_keeps_question_mark_placeholders(self):
-        from apps.web.main import _adapt_query
-
-        query = "SELECT * FROM users WHERE username = ?"
-        adapted = _adapt_query(query, "/tmp/curaframe.db")
-        assert adapted == query
-
-
 # ---------------------------------------------------------------------------
 # JWT authentication
 # ---------------------------------------------------------------------------
@@ -665,30 +649,22 @@ class TestJWTAuthentication:
         foreign_token = jose_jwt.encode({"sub": "hacker"}, "wrong-secret", algorithm=_JWT_ALGORITHM)
         assert _decode_jwt(foreign_token) is None
 
-    def test_jwt_secret_env_var_is_used(self, monkeypatch, tmp_path):
+    def test_jwt_secret_env_var_is_used(self, monkeypatch):
         """When JWT_SECRET is set, it is used to sign tokens."""
-        import importlib
-        import apps.web.main as main_module
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
+        from jose import jwt as jose_jwt
+        from apps.web.core.config import load_config
+        from apps.web.core.security import decode_jwt
 
         monkeypatch.setenv("JWT_SECRET", "my-test-secret-value")
-        # Re-read the module-level constant (it is read at import time,
-        # so we exercise the helper directly with the known secret).
-        from jose import jwt as jose_jwt
+        config = load_config()
         now = datetime.now(timezone.utc)
         token = jose_jwt.encode(
             {"sub": "envuser", "iat": now, "exp": now + timedelta(hours=24)},
-            "my-test-secret-value",
-            algorithm="HS256",
+            config.jwt_secret,
+            algorithm=config.jwt_algorithm,
         )
-        from apps.web.main import _decode_jwt
-        # Temporarily patch the module secret to the env value
-        original = main_module.JWT_SECRET
-        main_module.JWT_SECRET = "my-test-secret-value"
-        try:
-            assert _decode_jwt(token) == "envuser"
-        finally:
-            main_module.JWT_SECRET = original
+        assert decode_jwt(token, config) == "envuser"
 
     def test_dashboard_rejects_invalid_jwt_cookie(self, client):
         """A request with a forged session cookie must be redirected to /login."""
