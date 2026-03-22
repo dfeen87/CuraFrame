@@ -145,7 +145,7 @@ CuraFrame/
 ├── pytest.ini                   # Test configuration
 ├── CITATION.cff                 # Software citation metadata
 ├── README.md                    # This file
-└── LICENSE                      # MIT License
+└── LICENSE                      # Non-Commercial License
 ```
 
 ### Architectural Intent
@@ -763,15 +763,17 @@ For questions about:
 
 ## License
 
-CuraFrame is released under the **MIT License**, which permits:
-- ✓ Commercial use
-- ✓ Modification and derivative works
-- ✓ Distribution
-- ✓ Private use
+CuraFrame is released under a **Non-Commercial License**, which permits:
+- ✓ Academic research
+- ✓ Personal projects
+- ✓ Educational use
+- ✓ Non-profit work
+- ✓ Internal evaluation
 
 **Requirements**:
-- Preserve copyright and license notices in distributed copies
-- No warranty is provided (software is "as is")
+- **Commercial use is strictly prohibited** without a separate commercial license.
+- Preserve copyright and license notices in distributed copies.
+- No warranty is provided (software is "as is").
 
 **Ethical Obligations** (not legally binding, but strongly encouraged):
 - Do not use CuraFrame for clinical decision-making without appropriate medical oversight
@@ -781,7 +783,7 @@ CuraFrame is released under the **MIT License**, which permits:
 
 See the `LICENSE` file for complete legal text.
 
-> **Note**: The MIT License grants broad permissions but does not absolve users of ethical responsibility. CuraFrame is a scientific tool; its misuse could have serious consequences. Use with appropriate domain expertise and institutional review.
+> **Note**: The Non-Commercial License grants broad permissions for non-commercial use but does not absolve users of ethical responsibility. CuraFrame is a scientific tool; its misuse could have serious consequences. Use with appropriate domain expertise and institutional review.
 
 ---
 
@@ -798,7 +800,7 @@ If CuraFrame is used in research, publications, or technical reports, please cit
   year = {2025},
   version = {0.1.0},
   url = {https://github.com/dfeen87/CuraFrame},
-  license = {MIT}
+  license = {Non-Commercial}
 }
 ```
 
