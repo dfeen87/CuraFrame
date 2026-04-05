@@ -29,6 +29,7 @@ keywords:
   - risk mitigation
   - transparent reasoning
 
+version: "2.4.1"
 license: non-commercial
 repository-code: https://github.com/dfeen87/CuraFrame
 url: https://github.com/dfeen87/CuraFrame
@@ -39,5 +40,6 @@ preferred-citation:
     - given-names: Don Michael
       family-names: Feeney Jr.
   title: CuraFrame
+  version: "2.4.1"
   year: 2026
   url: https://github.com/dfeen87/CuraFrame
