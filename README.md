@@ -1,7 +1,5 @@
 # CuraFrame: Constraint-Driven Therapeutic Design Reasoning
 
-> **📣 Update — February 2025:** The AILEE pipeline has been reviewed and improved for greater cohesion with the CuraFrame application.
-
 ---
 
 ## Abstract
@@ -379,28 +377,31 @@ uvicorn apps.web.main:app --host 0.0.0.0 --port 8000
 
 Or deploy to Render.com using the included `render.yaml`:
 
-**Render.com deployment with persistent database**
+**Render.com deployment with managed database**
 
-CuraFrame stores users and evaluation logs in a SQLite database. On Render.com you **must** use a [Persistent Disk](https://render.com/docs/disks) so the database survives service restarts and redeploys. The included `render.yaml` already configures this automatically — here is what it does and how to set it up step-by-step:
+CuraFrame stores users and evaluation logs in a managed PostgreSQL database. The included `render.yaml` provisions all services automatically — here is what it configures and how to deploy:
 
 1. **Connect your repo to Render.com**
    - Go to [render.com](https://render.com), sign in, and click **New → Blueprint**.
    - Select the CuraFrame repository. Render will detect `render.yaml` and provision the services automatically.
 
 2. **What `render.yaml` configures**
-   - A **web service** (`curaframe-web`) running on the **Starter plan** (required for persistent disk support).
-   - A **1 GB persistent disk** mounted at `/data` — the SQLite database is stored at `/data/curaframe.db` and survives restarts.
-   - `CURAFRAME_DB=/data/curaframe.db` — tells the app where to find/create the database.
+   - A **managed PostgreSQL database** (`curaframe-db`) on Render's free database plan (PostgreSQL 18).
+   - A **web service** (`curaframe-web`) on the **Starter plan**, with `DATABASE_URL` injected automatically from the managed database.
    - `CURAFRAME_SECURE_COOKIES=1` — marks session cookies as `Secure` (required for HTTPS on Render).
-   - A second **web service** (`curaframe-console`) running the Streamlit console on the free plan (no database needed).
+   - A second **web service** (`curaframe-console`) running the Streamlit console on the free plan, also connected to the database.
 
-3. **Why the free plan is not enough for the web service**
-   - Render's free tier does **not** support persistent disks. A database file written to the default filesystem (`/opt/render/project/src/`) is **ephemeral** — it is wiped every time the service restarts, which means all registered users and logs would be lost. The Starter plan (~$7/month) is the minimum that supports a persistent disk.
+3. **Required secret (set manually in Render dashboard)**
+   - `JWT_SECRET` — a cryptographically random secret used to sign authentication tokens. Generate one with:
+     ```bash
+     python -c "import secrets; print(secrets.token_hex(32))"
+     ```
+     Add it as an environment variable on the `curaframe-web` service before the first deploy.
 
 4. **Manual setup (if you prefer not to use the Blueprint)**
    - Create a **Web Service** with environment `Python`, build command `pip install -r requirements.txt && pip install -e .`, and start command `uvicorn apps.web.main:app --host 0.0.0.0 --port $PORT`.
-   - In the service settings, go to **Disks → Add Disk**, set the mount path to `/data` and size to `1 GB`.
-   - Add the environment variables `CURAFRAME_DB=/data/curaframe.db` and `CURAFRAME_SECURE_COOKIES=1`.
+   - Create a **PostgreSQL** database on Render and link it to the web service via `DATABASE_URL`.
+   - Add environment variables `CURAFRAME_SECURE_COOKIES=1` and `JWT_SECRET` (see above).
 
 The database tables (`users`, `logs`, `form_submissions`) are created automatically on first startup — no manual schema migration is required.
 
@@ -794,11 +795,11 @@ See the `LICENSE` file for complete legal text.
 If CuraFrame is used in research, publications, or technical reports, please cite:
 
 ```bibtex
-@software{curaframe2025,
+@software{curaframe2026,
   title = {CuraFrame: Constraint-Driven Therapeutic Design Reasoning},
   author = {Feeney, Don Michael},
-  year = {2025},
-  version = {0.1.0},
+  year = {2026},
+  version = {2.4.1},
   url = {https://github.com/dfeen87/CuraFrame},
   license = {Non-Commercial}
 }
@@ -809,10 +810,10 @@ If CuraFrame is used in research, publications, or technical reports, please cit
 For references to the constraint-based reasoning approach:
 
 ```bibtex
-@misc{curaframe_methodology2025,
+@misc{curaframe_methodology2026,
   title = {Constraint-First Reasoning for Therapeutic Safety Assessment},
   author = {Feeney, Don Michael},
-  year = {2025},
+  year = {2026},
   howpublished = {GitHub Repository},
   url = {https://github.com/dfeen87/CuraFrame/blob/main/docs/CONSTRAINT_REASONING.md}
 }
@@ -836,7 +837,7 @@ CardiAnx-1 dual-domain therapeutic concept:
 
 For informal references in documentation or presentations:
 
-> "Constraint evaluation was performed using CuraFrame (Feeney, 2025), a falsification framework for therapeutic design safety assessment."
+> "Constraint evaluation was performed using CuraFrame (Feeney, 2026), a falsification framework for therapeutic design safety assessment."
 
 ---
 
@@ -931,13 +932,6 @@ If you believe a design is worth pursuing, CuraFrame will tell you **where it fa
 - Will this work in patients?
 
 > **Final Principle**: CuraFrame is a **reasoning framework**, not a discovery engine. Use it to explore, question, and refine—never to replace experimental validation or clinical judgment.
-
----
-
-## License
-
-This project is available for **non‑commercial use only** under the terms of the included LICENSE file.  
-Commercial use requires a separate paid license.
 
 ---
 
