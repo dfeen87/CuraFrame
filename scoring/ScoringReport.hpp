@@ -11,7 +11,8 @@ struct ScoringReport {
     // Per-bundle weighted contributions
     std::map<std::string, double> bundle_contributions;
 
-    // Breakdowns
+    // Breakdowns — keys are formatted as "domain_name::signal_name"
+    // (e.g. "Cardiac::qt_prolongation_risk").
     std::map<std::string, double> penalty_breakdown;
     std::map<std::string, double> bonus_breakdown;
 

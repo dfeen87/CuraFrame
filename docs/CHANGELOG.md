@@ -2,7 +2,7 @@
 
 All notable changes to the C++ parallel evaluation universe will be documented in this file.
 
-## [3.0.0] - Weighted Scoring Engine
+## [3.0.0] - 2026-04-10 - Weighted Scoring Engine
 
 ### Added
 - **Weighted Multi-Constraint Scoring Engine**: Introduced a unified scoring engine that computes a Composite Stability Score (0-100) from constraint bundle outputs.
@@ -14,7 +14,7 @@ All notable changes to the C++ parallel evaluation universe will be documented i
 ### Changed
 - Bumped project version to 3.0.0.
 
-## [2.5.0] - Constraint-Bundle Universe
+## [2.5.0] - 2026-04-10 - Constraint-Bundle Universe
 
 ### Added
 - **C++ Core Architecture:** Introduced `Candidate.hpp`, `EvaluationReport.hpp`, `ConstraintBundle.hpp`, `ConstraintRegistry.hpp`, and `MultiBundleEvaluator.hpp` in the `constraint_core/` directory to serve as the unified parallel evaluation layer.

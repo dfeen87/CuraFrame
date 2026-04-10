@@ -2,7 +2,6 @@
 #define CURAFRAME_SAFETY_BUNDLE_HPP
 
 #include "../../constraint_core/ConstraintBundle.hpp"
-#include "../../constraint_core/ConstraintRegistry.hpp"
 #include <sstream>
 
 class SafetyBundle : public ConstraintBundle {
@@ -55,7 +54,5 @@ public:
     std::vector<std::string> falsification_flags() const override { return flags; }
     std::string narrative_summary() const override { return summary; }
 };
-
-REGISTER_CONSTRAINT_BUNDLE("Safety", SafetyBundle)
 
 #endif // CURAFRAME_SAFETY_BUNDLE_HPP

@@ -94,8 +94,13 @@ std::string WeightedScoringEngine::generate_narrative(const ScoringReport& repor
         oss << "Bonuses were applied which mitigated some risk factors.\n";
     }
 
-    if (report.weight_profile_name == "HighSafetyProfile") {
-        oss << "The HighSafetyProfile heavily penalized safety and toxicity signals, resulting in a conservative stability score.\n";
+    std::string annotation = profile_->narrative_annotation();
+    if (!annotation.empty()) {
+        oss << annotation << "\n";
+    }
+
+    if (!eval_report.combined_narrative.empty()) {
+        oss << "\nDomain Evaluations:\n" << eval_report.combined_narrative;
     }
 
     return oss.str();

@@ -27,13 +27,13 @@ int main() {
     EvaluationReport report = evaluator.evaluate(c);
 
     if (!report.is_viable()) {
-        std::cout << "Candidate Falsified. Triggers:\\n";
+        std::cout << "Candidate Falsified. Triggers:\n";
         for (const auto& flag : report.falsification_flags) {
-            std::cout << "- " << flag << "\\n";
+            std::cout << "- " << flag << "\n";
         }
     }
 
-    std::cout << "\\nNarrative Summary:\\n" << report.combined_narrative << "\\n";
+    std::cout << "\nNarrative Summary:\n" << report.combined_narrative << "\n";
     return 0;
 }
 ```

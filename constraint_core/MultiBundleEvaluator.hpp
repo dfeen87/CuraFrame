@@ -5,13 +5,14 @@
 #include "EvaluationReport.hpp"
 #include "ConstraintRegistry.hpp"
 #include "../scoring/ScoringPipeline.hpp"
+#include "../scoring/ScoringReport.hpp"
 #include "../scoring/WeightProfile.hpp"
 #include <sstream>
 
 // Unified Evaluation Layer
 class MultiBundleEvaluator {
 public:
-    EvaluationReport evaluate(const Candidate& candidate) {
+    EvaluationReport evaluate(const Candidate& candidate) const {
         EvaluationReport report;
         report.candidate_id = candidate.id;
 

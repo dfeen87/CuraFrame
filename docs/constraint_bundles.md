@@ -25,4 +25,4 @@ CuraFrame features a parallel C++ constraint-bundle universe evaluating therapeu
 ### Physicochemical & Pharmacological
 - **Formulation (`FormulationBundle`):** Solubility deficits, chemical instability, delivery-vector incompatibilities.
 - **PK/PD (`PKPDBundle`):** Dose-response slope analysis, receptor saturation, effect-window decoupling flags.
-- **Global Safety (`SafetyBundle`):** Multi-organ stress aggregation, systemic catastrophe triggers.
+- **Safety (`SafetyBundle`):** Multi-organ stress aggregation, systemic catastrophe triggers.
