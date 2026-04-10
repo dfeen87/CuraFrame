@@ -2,7 +2,6 @@
 #define CURAFRAME_ANTI_INFECTIVE_BUNDLE_HPP
 
 #include "../../constraint_core/ConstraintBundle.hpp"
-#include "../../constraint_core/ConstraintRegistry.hpp"
 #include <sstream>
 
 class AntiInfectiveBundle : public ConstraintBundle {
@@ -57,7 +56,5 @@ public:
     std::vector<std::string> falsification_flags() const override { return flags; }
     std::string narrative_summary() const override { return summary; }
 };
-
-REGISTER_CONSTRAINT_BUNDLE("AntiInfective", AntiInfectiveBundle)
 
 #endif // CURAFRAME_ANTI_INFECTIVE_BUNDLE_HPP

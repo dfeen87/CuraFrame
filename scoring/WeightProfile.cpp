@@ -1,4 +1,8 @@
 #include "WeightProfile.hpp"
 
-// Intentionally left blank or simple implementations if needed.
-// Weight profiles are currently fully implemented inline in the header for simplicity and polymorphism.
+// All WeightProfile methods are implemented inline in WeightProfile.hpp because
+// the class relies entirely on virtual dispatch with small, default-valued
+// implementations that benefit from inlining.  This translation unit exists to
+// compile the header as part of the curaframe_cpp static library, ensuring that
+// the vtable and RTTI for WeightProfile, DefaultResearchProfile, and
+// HighSafetyProfile are emitted exactly once.
