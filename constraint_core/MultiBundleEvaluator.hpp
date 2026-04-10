@@ -4,6 +4,8 @@
 #include "Candidate.hpp"
 #include "EvaluationReport.hpp"
 #include "ConstraintRegistry.hpp"
+#include "../scoring/ScoringPipeline.hpp"
+#include "../scoring/WeightProfile.hpp"
 #include <sstream>
 
 // Unified Evaluation Layer
@@ -45,6 +47,18 @@ public:
 
         report.combined_narrative = combined_narrative.str();
         return report;
+    }
+
+    // Pass evaluation results to the scoring engine using the default profile
+    ScoringReport score(const EvaluationReport& report) const {
+        ScoringPipeline pipeline(std::make_shared<DefaultResearchProfile>());
+        return pipeline.execute(report);
+    }
+
+    // Pass evaluation results to the scoring engine using a specific profile
+    ScoringReport score_with_profile(const EvaluationReport& report, std::shared_ptr<WeightProfile> profile) const {
+        ScoringPipeline pipeline(profile);
+        return pipeline.execute(report);
     }
 };
 

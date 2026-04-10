@@ -2,6 +2,18 @@
 
 All notable changes to the C++ parallel evaluation universe will be documented in this file.
 
+## [3.0.0] - Weighted Scoring Engine
+
+### Added
+- **Weighted Multi-Constraint Scoring Engine**: Introduced a unified scoring engine that computes a Composite Stability Score (0-100) from constraint bundle outputs.
+- **Scoring Pipeline & Reports**: Added `ScoringPipeline` and `ScoringReport` to aggregate penalties, bonuses, falsification impacts, and generate narrative summaries.
+- **Weight Profiles**: Introduced configurable `WeightProfile` abstractions, including `DefaultResearchProfile` and `HighSafetyProfile`, for dynamic domain and signal weighting.
+- **Integration**: Updated `MultiBundleEvaluator` to seamlessly pass evaluation reports into the scoring engine via `score` and `score_with_profile` methods without altering underlying constraint logic.
+- **Documentation**: Added `scoring_engine.md` and `weight_profiles.md` detailing the scoring architecture and weight profile designs.
+
+### Changed
+- Bumped project version to 3.0.0.
+
 ## [2.5.0] - Constraint-Bundle Universe
 
 ### Added

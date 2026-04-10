@@ -799,7 +799,7 @@ If CuraFrame is used in research, publications, or technical reports, please cit
   title = {CuraFrame: Constraint-Driven Therapeutic Design Reasoning},
   author = {Feeney, Don Michael},
   year = {2026},
-  version = {2.5.0},
+  version = {3.0.0},
   url = {https://github.com/dfeen87/CuraFrame},
   license = {Non-Commercial}
 }
