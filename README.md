@@ -1,5 +1,29 @@
 # CuraFrame: Constraint-Driven Therapeutic Design Reasoning
 
+[![CI](https://github.com/dfeen87/CuraFrame/actions/workflows/ci.yml/badge.svg)](https://github.com/dfeen87/CuraFrame/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)
+[![License](https://img.shields.io/badge/license-Non--Commercial-lightgrey.svg)](LICENSE)
+
+## Table of Contents
+- [Abstract](#abstract)
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Repository Structure](#repository-structure)
+- [Theoretical Foundation](#theoretical-foundation)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Advanced Example: CardiAnx-1 Dual-Domain Evaluation](#advanced-example-cardianx-1-dual-domain-evaluation)
+- [Use Cases](#use-cases)
+- [Testing and Validation](#testing-and-validation)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
+- [License](#license)
+- [Citation and Attribution](#citation-and-attribution)
+- [Related Work and Scientific Context](#related-work-and-scientific-context)
+- [Design Philosophy Summary](#design-philosophy-summary)
+- [Concluding Remarks](#concluding-remarks)
+- [Acknowledgments](#acknowledgments)
+
 ---
 
 ## Abstract
@@ -101,49 +125,52 @@ Zero external dependencies in the core engine ensures:
 ## Repository Structure
 ```
 CuraFrame/
-├── cura_frame/                  # Core reasoning engine (library)
-│   ├── __init__.py              # Public API + metadata
-│   ├── core.py                  # Constraint evaluation engine
-│   ├── comparators.py           # Pure comparison semantics
-│   ├── constraints_library.py   # Canonical constraint definitions
-│   └── cli.py                   # Command-line interface
-│
-├── apps/                        # Application interfaces
-│   ├── __init__.py              # Package metadata
-│   ├── __main__.py              # Module launcher
-│   ├── console_streamlit/       # Streamlit interactive console
-│   │   └── app.py               # Constraint evaluation UI
-│   └── web/                     # FastAPI web application
-│       ├── __init__.py
-│       ├── main.py              # Routes, authentication, calculator
-│       └── templates/           # Jinja2 HTML templates
-│
-├── pipelayer/                   # Heavy machinery governance domain
-│   ├── __init__.py
-│   ├── pipelayer.py             # PipelayerGovernor and telemetry types
-│   └── test_pipelayer_usage.py
-│
-├── tests/                       # Test suite
-│   ├── test_core.py             # Core engine, CLI, and constraint tests
-│   └── test_web.py              # Web application tests
-│
-├── docs/                        # Constitutional documentation
-│   ├── PHILOSOPHY.md            # Core principles
-│   ├── CONSTRAINT_REASONING.md  # Technical approach
-│   ├── POPULATION_STRATIFICATION.md
-│   ├── LIMITATIONS.md           # Explicit boundaries
-│   ├── ETHICAL_USE.md           # Usage constraints
-│   └── INSPIRATION.md           # Scientific origins
-│
-├── launch_console.py            # Root-level Streamlit launcher
-├── render.yaml                  # Render.com deployment configuration
-├── requirements.txt             # Python dependencies
-├── setup.py                     # Package setup script
-├── pyproject.toml               # Build configuration
-├── pytest.ini                   # Test configuration
-├── CITATION.cff                 # Software citation metadata
-├── README.md                    # This file
-└── LICENSE                      # Non-Commercial License
+├── cura_frame/                   # Core reasoning engine (library)
+│   ├── core.py                   # Constraint evaluation engine
+│   ├── constraints_library.py    # Canonical constraint definitions
+│   ├── bundles.py                # Bundle registry helpers
+│   ├── comparators.py            # Comparator semantics
+│   ├── db.py                     # SQLite-backed auth/user helpers
+│   └── cli.py                    # Command-line interface
+├── apps/                         # Application interfaces
+│   ├── console_streamlit/        # Streamlit interactive console
+│   │   ├── app.py
+│   │   └── db_auth.py
+│   └── web/                      # FastAPI web application
+│       ├── main.py
+│       ├── api/
+│       ├── core/
+│       ├── db/
+│       └── templates/
+├── constraints/                  # Domain constraint datasets (JSON)
+│   ├── anti_infective/
+│   ├── cardiac/
+│   ├── cns/
+│   ├── formulation/
+│   ├── hepatic/
+│   ├── immunologic/
+│   ├── metabolic/
+│   ├── oncology/
+│   ├── pkpd/
+│   ├── renal/
+│   ├── safety/
+│   └── systemic_exposure/
+├── simulations/candidates/       # Example candidate payloads
+├── pipelayer/                    # Sideboom pipelayer governance domain
+├── constraint_core/              # C++ constraint core headers
+├── scoring/                      # C++ scoring engine components
+├── docs/                         # Philosophical + technical documentation
+├── tests/                        # Unit/integration test suite
+├── CMakeLists.txt                # C++ build configuration
+├── launch_console.py             # Root-level Streamlit launcher
+├── render.yaml                   # Render deployment configuration
+├── requirements.txt              # Python dependencies
+├── pyproject.toml                # Python build metadata
+├── setup.py                      # Package setup script
+├── pytest.ini                    # Test configuration
+├── CITATION.cff                  # Software citation metadata
+├── README.md                     # This file
+└── LICENSE                       # Non-Commercial license
 ```
 
 ### Architectural Intent
