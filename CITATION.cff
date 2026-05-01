@@ -30,7 +30,7 @@ keywords:
   - transparent reasoning
 
 version: "3.0.0"
-license: non-commercial
+license: MIT
 repository-code: https://github.com/dfeen87/CuraFrame
 url: https://github.com/dfeen87/CuraFrame
 

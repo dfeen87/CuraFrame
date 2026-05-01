@@ -170,7 +170,7 @@ CuraFrame/
 ├── pytest.ini                    # Test configuration
 ├── CITATION.cff                  # Software citation metadata
 ├── README.md                     # This file
-└── LICENSE                       # Non-Commercial license
+└── LICENSE                       # MIT License
 ```
 
 ### Architectural Intent
@@ -778,7 +778,7 @@ CuraFrame operates under a **scientific integrity code**:
 - Optimization algorithms targeting constraint satisfaction
 - Predictive models for biological activity
 - Clinical recommendation logic
-- Integration with undocumented/proprietary constraint sources
+- Integration with undocumented or closed-source constraint sources
 
 ### Getting Help
 
@@ -791,27 +791,17 @@ For questions about:
 
 ## License
 
-CuraFrame is released under a **Non-Commercial License**, which permits:
-- ✓ Academic research
-- ✓ Personal projects
-- ✓ Educational use
-- ✓ Non-profit work
-- ✓ Internal evaluation
+CuraFrame is now **100% open-source under the MIT License**.
 
-**Requirements**:
-- **Commercial use is strictly prohibited** without a separate commercial license.
-- Preserve copyright and license notices in distributed copies.
-- No warranty is provided (software is "as is").
+You are free to use, modify, distribute, and sublicense the software in accordance with the MIT License terms. Please preserve copyright and license notices in distributed copies.
+
+No warranty is provided (software is "as is"). See the `LICENSE` file for complete legal text.
 
 **Ethical Obligations** (not legally binding, but strongly encouraged):
 - Do not use CuraFrame for clinical decision-making without appropriate medical oversight
 - Document any modifications to constraint thresholds or evaluation logic
 - Acknowledge limitations when presenting results
 - Do not misrepresent CuraFrame as a drug discovery or optimization tool
-
-See the `LICENSE` file for complete legal text.
-
-> **Note**: The Non-Commercial License grants broad permissions for non-commercial use but does not absolve users of ethical responsibility. CuraFrame is a scientific tool; its misuse could have serious consequences. Use with appropriate domain expertise and institutional review.
 
 ---
 
@@ -828,7 +818,7 @@ If CuraFrame is used in research, publications, or technical reports, please cit
   year = {2026},
   version = {3.0.0},
   url = {https://github.com/dfeen87/CuraFrame},
-  license = {Non-Commercial}
+  license = {MIT}
 }
 ```
 
@@ -973,3 +963,6 @@ CuraFrame's development has been informed by:
 Thank you to the scientific community for establishing the knowledge base that CuraFrame attempts to encode faithfully and transparently.
 
 I would like to acknowledge **Microsoft Copilot**, **Anthropic Claude**, and **Google Jules** for their meaningful assistance in refining concepts, improving clarity, and strengthening the overall quality of this work.
+
+## Enterprise Consulting & Integration
+This architecture is fully open-source under the MIT License. If your organization requires custom scaling, proprietary integration, or dedicated technical consulting to deploy these models at an enterprise level, please reach out at: dfeen87@gmail.com
