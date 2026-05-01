@@ -1,5 +1,6 @@
 # CuraFrame: Constraint-Driven Therapeutic Design Reasoning
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/dfeen87/CuraFrame/actions/workflows/ci.yml/badge.svg)](https://github.com/dfeen87/CuraFrame/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)
 [![License](https://img.shields.io/badge/license-Non--Commercial-lightgrey.svg)](LICENSE)
