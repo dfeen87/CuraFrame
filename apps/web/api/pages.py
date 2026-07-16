@@ -239,3 +239,139 @@ def form_post(
     )
     db.commit()
     return templates.TemplateResponse(request, "form.html", {"user": user, "results": results, "error": None, "values": values})
+
+
+@router.get("/sweep", response_class=HTMLResponse)
+def sweep_get(request: Request, user: Optional[str] = Depends(get_current_user)):
+    if not user:
+        return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
+    templates: Jinja2Templates = request.app.state.templates
+    return templates.TemplateResponse(
+        request,
+        "sweep.html",
+        {
+            "user": user,
+            "results": None,
+            "inflections": None,
+            "bundles": get_available_bundles(),
+        }
+    )
+
+
+@router.post("/sweep", response_class=HTMLResponse)
+def sweep_post(
+    request: Request,
+    user: Optional[str] = Depends(get_current_user),
+    logP: Optional[float] = Form(default=2.0),
+    hERG_IC50: Optional[float] = Form(default=15.0),
+    beta1_selectivity: Optional[float] = Form(default=120.0),
+    molecular_weight: Optional[float] = Form(default=450.0),
+    polar_surface_area: Optional[float] = Form(default=75.0),
+    plasma_half_life: Optional[float] = Form(default=12.0),
+    sweep_prop: str = Form(default="logP"),
+    sweep_min: float = Form(default=0.0),
+    sweep_max: float = Form(default=10.0),
+    sweep_steps: int = Form(default=15),
+    bundle: str = Form(default="core-safety"),
+    population: str = Form(default="None"),
+):
+    if not user:
+        return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
+
+    templates: Jinja2Templates = request.app.state.templates
+
+    # Map population string
+    pop_arg = None if population == "None" else population
+
+    # Collect properties
+    properties = _build_properties(
+        logP=logP,
+        hERG_IC50=hERG_IC50,
+        beta1_selectivity=beta1_selectivity,
+        molecular_weight=molecular_weight,
+        polar_surface_area=polar_surface_area,
+        plasma_half_life=plasma_half_life,
+    )
+
+    # Store form values to pass back to the template
+    values = {
+        "logP": logP,
+        "hERG_IC50": hERG_IC50,
+        "beta1_selectivity": beta1_selectivity,
+        "molecular_weight": molecular_weight,
+        "polar_surface_area": polar_surface_area,
+        "plasma_half_life": plasma_half_life,
+        "sweep_prop": sweep_prop,
+        "sweep_min": sweep_min,
+        "sweep_max": sweep_max,
+        "sweep_steps": sweep_steps,
+        "bundle": bundle,
+        "population": population,
+        "bundles": get_available_bundles(),
+    }
+
+    try:
+        from cura_frame import CuraFrame, Candidate
+        from cura_frame.cli import resolve_bundle
+        from cura_frame.sensitivity import run_1d_sweep, find_inflection_points
+
+        # Build framework
+        constraints = resolve_bundle(bundle)
+        cura = CuraFrame(constraints, name=f"CuraFrame_Web_{bundle}")
+
+        # Register standard population modifiers if needed
+        POPULATION_MODIFIERS = {
+            "elderly": {
+                "hERG_IC50": lambda c: c.threshold * 1.5,
+            },
+            "asthmatic": {
+                "beta1_selectivity": lambda c: c.threshold * 2.0,
+            },
+            "pediatric": {
+                "hERG_IC50": lambda c: c.threshold * 1.3,
+                "molecular_weight": lambda c: (c.threshold[0], c.threshold[1] * 0.9),
+            }
+        }
+        if pop_arg and pop_arg in POPULATION_MODIFIERS:
+            cura.add_population(pop_arg, POPULATION_MODIFIERS[pop_arg])
+
+        candidate = Candidate(name="web_sweep_baseline", properties=properties)
+
+        results = run_1d_sweep(
+            framework=cura,
+            baseline_candidate=candidate,
+            property_name=sweep_prop,
+            min_val=sweep_min,
+            max_val=sweep_max,
+            steps=sweep_steps,
+            population=pop_arg,
+            strict=False  # Keep strict False to allow missing fields like non-sweep ones
+        )
+
+        inflections = find_inflection_points(results)
+
+        return templates.TemplateResponse(
+            request,
+            "sweep.html",
+            {
+                "user": user,
+                "results": results,
+                "inflections": inflections,
+                "error": None,
+                **values,
+            }
+        )
+
+    except Exception as e:
+        logger.exception("Unexpected sweep execution failure for user=%s", user)
+        return templates.TemplateResponse(
+            request,
+            "sweep.html",
+            {
+                "user": user,
+                "results": None,
+                "inflections": None,
+                "error": f"An error occurred: {str(e)}",
+                **values,
+            }
+        )

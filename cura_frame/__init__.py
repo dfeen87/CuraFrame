@@ -24,6 +24,11 @@ from .core import (
     Violation,
 )
 from .cli import main as cli_main
+from .sensitivity import (
+    run_1d_sweep,
+    run_2d_sweep,
+    find_inflection_points,
+)
 
 # Constraint library (explicit, opt-in usage)
 from .constraints_library import (
@@ -70,6 +75,9 @@ __all__ = [
     "Severity",
     "Violation",
     "cli_main",
+    "run_1d_sweep",
+    "run_2d_sweep",
+    "find_inflection_points",
 
     # Constraint library (explicit exports)
     "logP_max",

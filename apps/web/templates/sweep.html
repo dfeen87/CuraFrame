@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}Sensitivity Sweep — CuraFrame{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom:1.5rem">📈 Sensitivity Sweep & Boundary Mapping</h1>
+
+<div class="card">
+  <h2>Configure Boundary Sweep</h2>
+  <p style="color:#64748b;margin-bottom:1.2rem;font-size:.9rem">
+    Define the baseline candidate properties and choose one property to sweep across a range to discover the safety boundaries.
+  </p>
+
+  <form id="sweep-form" method="post" action="/sweep">
+    <h3 style="margin-bottom:0.75rem; font-size:1.1rem; color:#4a6fa5">1. Baseline Properties</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1.5rem">
+      <div class="form-group">
+        <label for="logP">logP</label>
+        <input type="number" id="logP" name="logP" step="0.01" value="{{ logP if logP is defined else '2.0' }}" />
+      </div>
+      <div class="form-group">
+        <label for="molecular_weight">Molecular Weight (Da)</label>
+        <input type="number" id="molecular_weight" name="molecular_weight" step="0.1" value="{{ molecular_weight if molecular_weight is defined else '450.0' }}" />
+      </div>
+      <div class="form-group">
+        <label for="polar_surface_area">Polar Surface Area (Ų)</label>
+        <input type="number" id="polar_surface_area" name="polar_surface_area" step="0.1" value="{{ polar_surface_area if polar_surface_area is defined else '75.0' }}" />
+      </div>
+      <div class="form-group">
+        <label for="hERG_IC50">hERG IC₅₀ (μM)</label>
+        <input type="number" id="hERG_IC50" name="hERG_IC50" step="0.01" value="{{ hERG_IC50 if hERG_IC50 is defined else '15.0' }}" />
+      </div>
+      <div class="form-group">
+        <label for="beta1_selectivity">β₁ Selectivity (ratio)</label>
+        <input type="number" id="beta1_selectivity" name="beta1_selectivity" step="0.1" value="{{ beta1_selectivity if beta1_selectivity is defined else '120.0' }}" />
+      </div>
+      <div class="form-group">
+        <label for="plasma_half_life">Plasma Half-Life (h)</label>
+        <input type="number" id="plasma_half_life" name="plasma_half_life" step="0.1" value="{{ plasma_half_life if plasma_half_life is defined else '12.0' }}" />
+      </div>
+    </div>
+
+    <h3 style="margin-bottom:0.75rem; font-size:1.1rem; color:#4a6fa5">2. Sweep Parameter</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1.5rem">
+      <div class="form-group">
+        <label for="sweep_prop">Property to Sweep</label>
+        <select id="sweep_prop" name="sweep_prop">
+          <option value="logP" {% if sweep_prop is defined and sweep_prop == 'logP' %}selected{% endif %}>logP</option>
+          <option value="hERG_IC50" {% if sweep_prop is defined and sweep_prop == 'hERG_IC50' %}selected{% endif %}>hERG IC₅₀</option>
+          <option value="beta1_selectivity" {% if sweep_prop is defined and sweep_prop == 'beta1_selectivity' %}selected{% endif %}>β₁ Selectivity</option>
+          <option value="molecular_weight" {% if sweep_prop is defined and sweep_prop == 'molecular_weight' %}selected{% endif %}>Molecular Weight</option>
+          <option value="polar_surface_area" {% if sweep_prop is defined and sweep_prop == 'polar_surface_area' %}selected{% endif %}>Polar Surface Area</option>
+          <option value="plasma_half_life" {% if sweep_prop is defined and sweep_prop == 'plasma_half_life' %}selected{% endif %}>Plasma Half-Life</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="sweep_min">Min Value</label>
+        <input type="number" id="sweep_min" name="sweep_min" step="0.01" value="{{ sweep_min if sweep_min is defined else '0.0' }}" />
+      </div>
+
+      <div class="form-group">
+        <label for="sweep_max">Max Value</label>
+        <input type="number" id="sweep_max" name="sweep_max" step="0.01" value="{{ sweep_max if sweep_max is defined else '10.0' }}" />
+      </div>
+
+      <div class="form-group">
+        <label for="sweep_steps">Steps</label>
+        <input type="number" id="sweep_steps" name="sweep_steps" min="2" max="100" value="{{ sweep_steps if sweep_steps is defined else '15' }}" />
+      </div>
+
+      <div class="form-group">
+        <label for="bundle">Constraint Bundle</label>
+        <select id="bundle" name="bundle">
+          {% for value, label in bundles %}
+          <option value="{{ value }}" {% if bundle is defined and bundle == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="population">Patient Population</label>
+        <select id="population" name="population">
+          <option value="None" {% if population is not defined or population == 'None' %}selected{% endif %}>General (None)</option>
+          <option value="elderly" {% if population is defined and population == 'elderly' %}selected{% endif %}>Elderly</option>
+          <option value="asthmatic" {% if population is defined and population == 'asthmatic' %}selected{% endif %}>Asthmatic</option>
+          <option value="pediatric" {% if population is defined and population == 'pediatric' %}selected{% endif %}>Pediatric</option>
+        </select>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">🚀 Run Parameter Sweep</button>
+  </form>
+</div>
+
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+{% if results %}
+<div class="card">
+  <h2>Sweep Visualization</h2>
+  <p style="color:#64748b;margin-bottom:1rem;font-size:.85rem">
+    The bar below represents the swept range from <strong>{{ "%.2f"|format(sweep_min|float) }}</strong> to <strong>{{ "%.2f"|format(sweep_max|float) }}</strong>. Hover over segments to inspect precise values and active violations.
+  </p>
+
+  {# Interactive bar visualization #}
+  <div style="display: flex; width: 100%; height: 28px; border-radius: 8px; overflow: hidden; margin-bottom: 1.5rem; border: 1px solid #cbd5e1; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1)">
+    {% for step in results %}
+      {% set s_val = step.status.value %}
+      {% set s_color = '#d1fae5' if s_val == 'accepted' else ('#fee2e2' if s_val == 'rejected' else '#fef9c3') %}
+      <div style="flex: 1; background: {{ s_color }}; transition: transform 0.1s; cursor: pointer;"
+           onmouseover="this.style.transform='scaleY(1.15)';"
+           onmouseout="this.style.transform='scaleY(1.0)';"
+           title="Value: {{ '%.2f'|format(step.value) }} | Status: {{ s_val.upper() }} {% if step.violations %}| Violations: {{ step.violations|join(', ') }}{% endif %}"></div>
+    {% endfor %}
+  </div>
+
+  <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #64748b; margin-top: -1rem; margin-bottom: 2rem; padding: 0 4px">
+    <span>{{ "%.2f"|format(sweep_min|float) }}</span>
+    <span>Middle ({{ "%.2f"|format(((sweep_min|float) + (sweep_max|float)) / 2) }})</span>
+    <span>{{ "%.2f"|format(sweep_max|float) }}</span>
+  </div>
+
+  <div style="display: flex; gap: 1.5rem; margin-bottom: 1.5rem; justify-content: center;">
+    <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem;">
+      <div style="width: 14px; height: 14px; background: #d1fae5; border-radius: 3px; border: 1px solid #cbd5e1"></div>
+      <strong>ACCEPTED</strong>
+    </div>
+    <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem;">
+      <div style="width: 14px; height: 14px; background: #fee2e2; border-radius: 3px; border: 1px solid #cbd5e1"></div>
+      <strong>REJECTED</strong>
+    </div>
+    <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem;">
+      <div style="width: 14px; height: 14px; background: #fef9c3; border-radius: 3px; border: 1px solid #cbd5e1"></div>
+      <strong>INDETERMINATE</strong>
+    </div>
+  </div>
+
+  {% if inflections %}
+  <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 1.25rem; margin-bottom: 1.5rem;">
+    <h3 style="color: #4a6fa5; margin-bottom: 0.75rem; font-size: 1.05rem;">🎯 Detected Safety Boundaries (Transitions)</h3>
+    <ul style="padding-left: 1.2rem; line-height: 1.6; font-size: 0.9rem;">
+      {% for inf in inflections %}
+        <li style="margin-bottom: 0.5rem">
+          Status transitions from <span class="badge badge-{{ inf.status_from.value }}">{{ inf.status_from.value }}</span> to <span class="badge badge-{{ inf.status_to.value }}">{{ inf.status_to.value }}</span>
+          between <strong>{{ "%.2f"|format(inf.value_from) }}</strong> and <strong>{{ "%.2f"|format(inf.value_to) }}</strong>.
+          {% if inf.violations_to %}
+            <br><span style="color:#e74c3c; font-size:0.85rem">Triggered violations: {{ inf.violations_to|join(', ') }}</span>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% else %}
+  <div class="alert alert-info">ℹ️ No transitions or boundaries detected across the swept range. The design remains in a uniform state.</div>
+  {% endif %}
+
+  <h3 style="margin-bottom: 0.75rem; font-size: 1.1rem; color: #4a6fa5">Detailed Step Results</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Swept {{ sweep_prop }}</th>
+        <th>Status</th>
+        <th>Violations Triggered</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for step in results %}
+      <tr>
+        <td><strong>{{ "%.2f"|format(step.value) }}</strong></td>
+        <td><span class="badge badge-{{ step.status.value }}">{{ step.status.value }}</span></td>
+        <td>
+          {% if step.violations %}
+            <span style="color:#e74c3c">{{ step.violations|join(', ') }}</span>
+          {% else %}
+            <span style="color:#2ecc71">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}
