@@ -6,6 +6,7 @@ Shared database helpers are imported from cura_frame.db.
 import os
 import re
 import sqlite3
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Dict, Any, List
@@ -92,6 +93,20 @@ def init_db(db_path: str = DB_PATH) -> None:
                 )
                 """,
             )
+            _execute(
+                conn,
+                db_path,
+                """
+                CREATE TABLE IF NOT EXISTS custom_populations (
+                    id            BIGSERIAL PRIMARY KEY,
+                    username      TEXT NOT NULL,
+                    name          TEXT NOT NULL,
+                    description   TEXT,
+                    modifiers     TEXT NOT NULL,
+                    UNIQUE(username, name)
+                )
+                """,
+            )
         else:
             _execute(
                 conn,
@@ -126,6 +141,20 @@ def init_db(db_path: str = DB_PATH) -> None:
                     plasma_half_life      REAL,
                     bundle                TEXT,
                     status                TEXT
+                )
+                """,
+            )
+            _execute(
+                conn,
+                db_path,
+                """
+                CREATE TABLE IF NOT EXISTS custom_populations (
+                    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username      TEXT NOT NULL,
+                    name          TEXT NOT NULL,
+                    description   TEXT,
+                    modifiers     TEXT NOT NULL,
+                    UNIQUE(username, name)
                 )
                 """,
             )
@@ -276,3 +305,84 @@ def get_user_logs(username: str) -> List[Dict[str, Any]]:
         return rows  # Already dicts
     else:
         return [dict(row) for row in rows]
+
+def save_custom_population(username: str, name: str, description: str, modifiers: List[Dict[str, Any]]) -> bool:
+    """Save or update a custom population profile for a user."""
+    conn = _get_connection(DB_PATH)
+    try:
+        json_modifiers = json.dumps(modifiers)
+        # Check if already exists
+        row = _fetchone(
+            conn,
+            DB_PATH,
+            "SELECT id FROM custom_populations WHERE username = ? AND name = ?",
+            (username, name),
+        )
+        if row:
+            _execute(
+                conn,
+                DB_PATH,
+                "UPDATE custom_populations SET description = ?, modifiers = ? WHERE username = ? AND name = ?",
+                (description, json_modifiers, username, name),
+            )
+        else:
+            _execute(
+                conn,
+                DB_PATH,
+                "INSERT INTO custom_populations (username, name, description, modifiers) VALUES (?, ?, ?, ?)",
+                (username, name, description, json_modifiers),
+            )
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error saving custom population: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_custom_populations(username: str) -> List[Dict[str, Any]]:
+    """Retrieve all custom populations for a user."""
+    conn = _get_connection(DB_PATH)
+    try:
+        rows = _fetchall(
+            conn,
+            DB_PATH,
+            "SELECT name, description, modifiers FROM custom_populations WHERE username = ? ORDER BY name ASC",
+            (username,),
+        )
+        results = []
+        for r in rows:
+            row_dict = dict(r) if not isinstance(r, dict) else r
+            try:
+                mods = json.loads(row_dict["modifiers"])
+            except Exception:
+                mods = []
+            results.append({
+                "name": row_dict["name"],
+                "description": row_dict["description"],
+                "modifiers": mods
+            })
+        return results
+    except Exception as e:
+        print(f"Error getting custom populations: {e}")
+        return []
+    finally:
+        conn.close()
+
+def delete_custom_population(username: str, name: str) -> bool:
+    """Delete a custom population for a user."""
+    conn = _get_connection(DB_PATH)
+    try:
+        _execute(
+            conn,
+            DB_PATH,
+            "DELETE FROM custom_populations WHERE username = ? AND name = ?",
+            (username, name),
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error deleting custom population: {e}")
+        return False
+    finally:
+        conn.close()
