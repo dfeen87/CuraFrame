@@ -128,6 +128,65 @@ POPULATION_MODIFIERS = {
     }
 }
 
+ALL_PARAMETERS = [
+    "logP",
+    "molecular_weight",
+    "polar_surface_area",
+    "hydrogen_bond_donors",
+    "hydrogen_bond_acceptors",
+    "hERG_IC50",
+    "delta_QTc_ms",
+    "beta1_selectivity",
+    "Kd_5HT1A",
+    "Kd_5HT2A",
+    "Kd_D2",
+    "plasma_half_life",
+    "oral_bioavailability",
+    "hepatic_clearance",
+    "clearance",
+    "CYP3A4_IC50",
+    "therapeutic_index",
+    "protein_binding",
+    "aqueous_solubility"
+]
+
+def make_custom_modifier(operator: str, value: float):
+    """
+    Compile a structured operator and value into a callable CuraFrame modifier.
+    Handles both scalar thresholds and tuple (range) thresholds correctly.
+    """
+    def modifier_fn(c):
+        threshold = c.threshold
+        if isinstance(threshold, tuple):
+            if len(threshold) == 2:
+                lower, upper = threshold
+                if operator == "Override":
+                    return (lower, value)
+                elif operator == "*":
+                    return (lower, upper * value)
+                elif operator == "/":
+                    divisor = value if value != 0 else 1.0
+                    return (lower, upper / divisor)
+                elif operator == "+":
+                    return (lower, upper + value)
+                elif operator == "-":
+                    return (lower, upper - value)
+            return threshold
+        else:
+            if operator == "Override":
+                return value
+            elif operator == "*":
+                return threshold * value
+            elif operator == "/":
+                divisor = value if value != 0 else 1.0
+                return threshold / divisor
+            elif operator == "+":
+                return threshold + value
+            elif operator == "-":
+                return threshold - value
+        return threshold
+    return modifier_fn
+
 
 # -----------------------------
 # Header
@@ -205,16 +264,8 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # Input Mode
-    st.subheader("Input Method")
-    input_mode = st.radio(
-        "Mode",
-        ["Calculator", "JSON"],
-        index=0,
-        help="Choose between form-based calculator or raw JSON input"
-    )
-
-    st.markdown("---")
+    # Input Mode (Hardcoded to Calculator mode as per constraints)
+    input_mode = "Calculator"
 
     # Evaluation mode
     st.subheader("Evaluation Mode")
@@ -232,15 +283,27 @@ with st.sidebar:
 
     use_population = st.checkbox("Apply population-specific modifiers")
 
+    custom_pops = []
+    if st.session_state.get('user'):
+        try:
+            custom_pops = db_auth.get_custom_populations(st.session_state['user'])
+        except Exception as e:
+            st.error(f"Failed to load custom populations: {e}")
+
     if use_population:
+        pop_list = [""] + list(POPULATION_MODIFIERS.keys()) + [p["name"] for p in custom_pops]
         population = st.selectbox(
             "Population",
-            [""] + list(POPULATION_MODIFIERS.keys()),
+            pop_list,
             help="Apply constraint adjustments for specific patient populations"
         )
 
+        selected_custom_pop = next((p for p in custom_pops if p["name"] == population), None)
+
         if population and population in POPULATION_MODIFIERS:
             st.caption(f"ℹ️ {POPULATION_MODIFIERS[population]['description']}")
+        elif selected_custom_pop:
+            st.caption(f"ℹ️ {selected_custom_pop['description'] or 'Custom user-defined patient population.'}")
     else:
         population = None
 
@@ -254,17 +317,7 @@ with st.sidebar:
         help="Enable AILEE Trust Layer for deterministic evaluation confidence"
     )
 
-    if input_mode == "JSON":
-        st.markdown("---")
-        # File upload only in JSON mode
-        st.subheader("📄 Upload Candidate")
-        uploaded = st.file_uploader(
-            "Upload JSON file",
-            type=["json"],
-            help="Upload a candidate definition in JSON format"
-        )
-    else:
-        uploaded = None
+    uploaded = None
 
 
 # -----------------------------
@@ -325,80 +378,33 @@ EXAMPLES = {
 
 st.header("📝 Candidate Definition")
 
-if input_mode == "Calculator":
-    st.caption("Enter candidate properties below. Fields are derived from the selected constraint bundle.")
+st.caption("Enter candidate properties below. Fields are derived from the selected constraint bundle.")
 
-    # Dynamic Form Generation
-    constraints = bundle_info["fn"]()
-    property_names = sorted(list(set(c.name for c in constraints)))
+# Dynamic Form Generation
+constraints = bundle_info["fn"]()
+property_names = sorted(list(set(c.name for c in constraints)))
 
-    form_properties = {}
+form_properties = {}
 
-    cols = st.columns(2)
-    for i, prop in enumerate(property_names):
-        col = cols[i % 2]
-        with col:
-            val = st.number_input(
-                f"{prop}",
-                key=f"calc_{prop}",
-                value=0.0,
-                format="%.2f"
-            )
-            form_properties[prop] = val
-
-    # Construct JSON from form
-    candidate_dict = {
-        "name": "calculator_candidate",
-        "properties": form_properties,
-        "provenance": "user_input_calculator"
-    }
-    candidate_text = json.dumps(candidate_dict, indent=2)
-
-else:
-    # JSON Mode
-    col_example, col_input = st.columns([1, 3])
-
-    with col_example:
-        st.subheader("Examples")
-        example_choice = st.radio(
-            "Load example",
-            list(EXAMPLES.keys()),
-            label_visibility="collapsed"
+cols = st.columns(2)
+for i, prop in enumerate(property_names):
+    col = cols[i % 2]
+    with col:
+        val = st.number_input(
+            f"{prop}",
+            key=f"calc_{prop}",
+            value=0.0,
+            format="%.2f"
         )
+        form_properties[prop] = val
 
-        if st.button("Load Example"):
-            st.session_state['candidate_json'] = json.dumps(
-                EXAMPLES[example_choice],
-                indent=2
-            )
-
-    with col_input:
-        # Check if uploaded file exists
-        if uploaded is not None:
-            try:
-                candidate_text = uploaded.read().decode("utf-8")
-                st.success(f"Loaded: {uploaded.name}")
-            except Exception as e:
-                st.error(f"Could not read uploaded file: {e}")
-                candidate_text = st.session_state.get(
-                    'candidate_json',
-                    json.dumps(EXAMPLES["Safe (passes core safety)"], indent=2)
-                )
-        else:
-            candidate_text = st.session_state.get(
-                'candidate_json',
-                json.dumps(EXAMPLES["Safe (passes core safety)"], indent=2)
-            )
-
-        candidate_text = st.text_area(
-            "Candidate JSON",
-            value=candidate_text,
-            height=300,
-            help="Define candidate properties in JSON format"
-        )
-
-        # Save to session state
-        st.session_state['candidate_json'] = candidate_text
+# Construct JSON from form
+candidate_dict = {
+    "name": "calculator_candidate",
+    "properties": form_properties,
+    "provenance": "user_input_calculator"
+}
+candidate_text = json.dumps(candidate_dict, indent=2)
 
 
 # -----------------------------
@@ -407,7 +413,11 @@ else:
 
 st.markdown("---")
 
-tab_eval, tab_sweep = st.tabs(["🔍 Candidate Evaluation", "📈 Parameter Sweep & Boundary Mapping"])
+tab_eval, tab_sweep, tab_custom = st.tabs([
+    "🔍 Candidate Evaluation",
+    "📈 Parameter Sweep & Boundary Mapping",
+    "👥 Custom Population Profiles"
+])
 
 with tab_eval:
     col_button, col_info = st.columns([1, 3])
@@ -444,12 +454,30 @@ with tab_eval:
             cura = CuraFrame(constraints, name=f"CuraFrame::{bundle_name}")
 
             # Register population modifiers
-            if use_population and population and population in POPULATION_MODIFIERS:
-                pop_mods = {
-                    k: v for k, v in POPULATION_MODIFIERS[population].items()
-                    if k != "description"
-                }
-                cura.add_population(population, pop_mods)
+            if use_population and population:
+                if population in POPULATION_MODIFIERS:
+                    pop_mods = {
+                        k: v for k, v in POPULATION_MODIFIERS[population].items()
+                        if k != "description"
+                    }
+                    cura.add_population(population, pop_mods)
+                else:
+                    # Query custom population details
+                    custom_pops = db_auth.get_custom_populations(st.session_state['user'])
+                    selected_custom_pop = next((p for p in custom_pops if p["name"] == population), None)
+                    if selected_custom_pop:
+                        pop_mods = {}
+                        for mod in selected_custom_pop["modifiers"]:
+                            param = mod["parameter"]
+                            op = mod["operator"]
+                            val = mod["value"]
+                            pop_mods[param] = make_custom_modifier(op, val)
+                            # Support mapping clearance to hepatic_clearance and vice versa
+                            if param == "clearance":
+                                pop_mods["hepatic_clearance"] = make_custom_modifier(op, val)
+                            elif param == "hepatic_clearance":
+                                pop_mods["clearance"] = make_custom_modifier(op, val)
+                        cura.add_population(population, pop_mods)
 
             # Evaluate
             pop_arg = population if use_population else None
@@ -569,6 +597,17 @@ with tab_eval:
                         st.error("Failed to save.")
 
                 # Export results as JSON
+                export_pop_profile = None
+                if pop_arg and pop_arg not in POPULATION_MODIFIERS:
+                    custom_pops = db_auth.get_custom_populations(st.session_state['user'])
+                    matched_pop = next((p for p in custom_pops if p["name"] == pop_arg), None)
+                    if matched_pop:
+                        export_pop_profile = {
+                            "name": matched_pop["name"],
+                            "description": matched_pop["description"],
+                            "modifiers": matched_pop["modifiers"]
+                        }
+
                 export_data = {
                     "candidate": {
                         "name": cand.name,
@@ -593,6 +632,7 @@ with tab_eval:
                     "configuration": {
                         "bundle": bundle_name,
                         "population": pop_arg,
+                        "population_profile": export_pop_profile,
                         "strict": strict
                     }
                 }
@@ -853,9 +893,25 @@ with tab_sweep:
                 # Build framework and register population modifiers
                 constraints = bundle_info["fn"]()
                 cura = CuraFrame(constraints, name=f"CuraFrame::{bundle_name}")
-                if use_population and population and population in POPULATION_MODIFIERS:
-                    pop_mods = {k: v for k, v in POPULATION_MODIFIERS[population].items() if k != "description"}
-                    cura.add_population(population, pop_mods)
+                if use_population and population:
+                    if population in POPULATION_MODIFIERS:
+                        pop_mods = {k: v for k, v in POPULATION_MODIFIERS[population].items() if k != "description"}
+                        cura.add_population(population, pop_mods)
+                    else:
+                        custom_pops = db_auth.get_custom_populations(st.session_state['user'])
+                        selected_custom_pop = next((p for p in custom_pops if p["name"] == population), None)
+                        if selected_custom_pop:
+                            pop_mods = {}
+                            for mod in selected_custom_pop["modifiers"]:
+                                param = mod["parameter"]
+                                op = mod["operator"]
+                                val = mod["value"]
+                                pop_mods[param] = make_custom_modifier(op, val)
+                                if param == "clearance":
+                                    pop_mods["hepatic_clearance"] = make_custom_modifier(op, val)
+                                elif param == "hepatic_clearance":
+                                    pop_mods["clearance"] = make_custom_modifier(op, val)
+                            cura.add_population(population, pop_mods)
 
                 pop_arg = population if use_population else None
 
@@ -1042,6 +1098,212 @@ with col_usage:
         - ⚠️ **INDETERMINATE:** Insufficient data or evaluation error
         """
     )
+
+# -----------------------------
+# Tab: Custom Population Profiles
+# -----------------------------
+
+with tab_custom:
+    st.header("👥 Custom Population Profile Creator & Editor")
+    st.caption("Define new, custom patient populations or comorbidity profiles by specifying parameter modifiers.")
+
+    if 'editing_modifiers' not in st.session_state:
+        st.session_state['editing_modifiers'] = []
+
+    col_left, col_right = st.columns(2)
+
+    with col_left:
+        st.subheader("🛠️ Profile Editor")
+
+        # Load existing populations for the logged-in user
+        user_custom_pops = db_auth.get_custom_populations(st.session_state['user'])
+
+        pop_editor_options = ["-- Create New Profile --"] + [p["name"] for p in user_custom_pops]
+        selected_edit_pop_name = st.selectbox("Select Profile to Edit", pop_editor_options)
+
+        # Set defaults based on selection
+        if selected_edit_pop_name == "-- Create New Profile --":
+            default_name = ""
+            default_desc = ""
+            default_modifiers = []
+        else:
+            found_pop = next(p for p in user_custom_pops if p["name"] == selected_edit_pop_name)
+            default_name = found_pop["name"]
+            default_desc = found_pop["description"]
+            default_modifiers = found_pop["modifiers"]
+
+        # Track when active editing profile changes and sync modifiers list
+        if 'last_selected_edit_pop' not in st.session_state or st.session_state['last_selected_edit_pop'] != selected_edit_pop_name:
+            st.session_state['last_selected_edit_pop'] = selected_edit_pop_name
+            st.session_state['editing_modifiers'] = list(default_modifiers)
+
+        # Form fields
+        edit_name = st.text_input("Profile Name", value=default_name, placeholder="e.g., renal-impaired asthmatic")
+        edit_desc = st.text_area("Description", value=default_desc, placeholder="e.g., Reduced clearance and doubled selectivity requirements.")
+
+        st.write("---")
+        st.subheader("➕ Add / Edit Modifiers")
+
+        # Step 1: Dropdown to select a parameter
+        mod_param = st.selectbox("1. Select Parameter", ALL_PARAMETERS)
+
+        # Step 2: Operator dropdown
+        mod_op = st.selectbox("2. Operator", ["*", "/", "+", "-", "Override"])
+
+        # Step 3: Numeric input for factor/value
+        mod_val = st.number_input("3. Value / Factor", value=1.0, format="%.4f")
+
+        if st.button("Add Modifier to Profile"):
+            # Remove any existing modifier for the same parameter to avoid duplicates
+            st.session_state['editing_modifiers'] = [
+                m for m in st.session_state['editing_modifiers']
+                if m["parameter"] != mod_param
+            ]
+            st.session_state['editing_modifiers'].append({
+                "parameter": mod_param,
+                "operator": mod_op,
+                "value": mod_val
+            })
+            st.success(f"Added modifier: {mod_param} {mod_op} {mod_val}")
+            st.rerun()
+
+        # Display current modifiers in the profile
+        if st.session_state['editing_modifiers']:
+            st.write("**Current Modifiers:**")
+            for idx, m in enumerate(st.session_state['editing_modifiers']):
+                col_m_text, col_m_del = st.columns([4, 1])
+                with col_m_text:
+                    st.write(f"- `{m['parameter']}` `{m['operator']}` `{m['value']}`")
+                with col_m_del:
+                    if st.button("🗑️", key=f"del_mod_{idx}"):
+                        st.session_state['editing_modifiers'].pop(idx)
+                        st.rerun()
+        else:
+            st.info("No modifiers added yet. Use the fields above to add modifiers.")
+
+        st.write("---")
+        col_btn_save, col_btn_delete = st.columns(2)
+
+        with col_btn_save:
+            if st.button("💾 Save Profile", type="primary", use_container_width=True):
+                if not edit_name:
+                    st.error("Profile Name cannot be empty.")
+                elif not st.session_state['editing_modifiers']:
+                    st.error("Please add at least one modifier.")
+                else:
+                    success = db_auth.save_custom_population(
+                        st.session_state['user'],
+                        edit_name,
+                        edit_desc,
+                        st.session_state['editing_modifiers']
+                    )
+                    if success:
+                        st.success(f"Profile '{edit_name}' saved successfully!")
+                        st.rerun()
+                    else:
+                        st.error("Failed to save profile.")
+
+        with col_btn_delete:
+            if selected_edit_pop_name != "-- Create New Profile --":
+                if st.button("🗑️ Delete Profile", use_container_width=True):
+                    success = db_auth.delete_custom_population(st.session_state['user'], selected_edit_pop_name)
+                    if success:
+                        st.success(f"Profile '{selected_edit_pop_name}' deleted!")
+                        st.rerun()
+                    else:
+                        st.error("Failed to delete profile.")
+
+    with col_right:
+        st.subheader("👁️ Profile Preview & Export")
+        if edit_name:
+            st.write(f"**Name:** {edit_name}")
+            st.write(f"**Description:** {edit_desc or '*No description provided*'}")
+
+            profile_json_data = {
+                "name": edit_name,
+                "description": edit_desc,
+                "created_by": st.session_state['user'],
+                "modifiers": st.session_state['editing_modifiers']
+            }
+
+            st.download_button(
+                "⬇️ Download Population Profile (JSON)",
+                data=json.dumps(profile_json_data, indent=2),
+                file_name=f"population_profile_{edit_name.replace(' ', '_').lower()}.json",
+                mime="application/json",
+                use_container_width=True
+            )
+
+            st.code(json.dumps(profile_json_data, indent=2), language="json")
+        else:
+            st.info("Provide a profile name to see preview & enable export.")
+
+        st.write("---")
+        st.subheader("🧪 Quick Test Evaluation")
+        st.caption("Test the active modifiers against a sample candidate using the active constraint bundle.")
+
+        test_bundle_name = st.selectbox("Select Bundle for Test", list(BUNDLES.keys()), key="test_bundle_select")
+
+        # Create a sample candidate for the chosen bundle
+        test_bundle_fn = BUNDLES[test_bundle_name]["fn"]
+        test_constraints = test_bundle_fn()
+        test_prop_names = sorted(list(set(c.name for c in test_constraints)))
+
+        sample_props = {}
+        for p in test_prop_names:
+            if p == "logP":
+                sample_props[p] = 3.0
+            elif "IC50" in p or "ic50" in p:
+                sample_props[p] = 15.0
+            elif "selectivity" in p:
+                sample_props[p] = 120.0
+            elif "weight" in p or "mw" in p:
+                sample_props[p] = 400.0
+            elif "area" in p or "psa" in p:
+                sample_props[p] = 70.0
+            elif "half_life" in p:
+                sample_props[p] = 12.0
+            elif "binding" in p:
+                sample_props[p] = 80.0
+            elif "solubility" in p:
+                sample_props[p] = 50.0
+            elif "bioavailability" in p:
+                sample_props[p] = 50.0
+            elif "Kd" in p:
+                sample_props[p] = 12.0
+            else:
+                sample_props[p] = 10.0
+
+        if st.button("🧪 Run Test Evaluation", use_container_width=True):
+            if not st.session_state['editing_modifiers']:
+                st.warning("Please add at least one modifier to test.")
+            else:
+                test_cand = Candidate(
+                    name="Test_Sample_Candidate",
+                    properties=sample_props,
+                    provenance="quick_test_evaluation"
+                )
+
+                # Setup CuraFrame
+                test_cura = CuraFrame(test_constraints, name=f"CuraFrame::Test::{test_bundle_name}")
+
+                # Compile modifiers
+                test_pop_mods = {}
+                for mod in st.session_state['editing_modifiers']:
+                    param = mod["parameter"]
+                    op = mod["operator"]
+                    val = mod["value"]
+                    test_pop_mods[param] = make_custom_modifier(op, val)
+                    if param == "clearance":
+                        test_pop_mods["hepatic_clearance"] = make_custom_modifier(op, val)
+                    elif param == "hepatic_clearance":
+                        test_pop_mods["clearance"] = make_custom_modifier(op, val)
+
+                test_cura.add_population("test_pop", test_pop_mods)
+                test_result = test_cura.evaluate(test_cand, population="test_pop", strict=False)
+
+                st.markdown(f"**Test Result:** `{test_result.status.value.upper()}`")
+                st.code(test_result.summary(), language="text")
 
 # Credits
 st.markdown("---")
