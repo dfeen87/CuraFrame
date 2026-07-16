@@ -108,6 +108,7 @@ def serialize_result(result: EvaluationResult) -> Dict[str, Any]:
             }
             for violation in result.violations
         ],
+        "gap_analysis": result.gap_analysis,
     }
 
 

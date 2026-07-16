@@ -623,6 +623,73 @@ with tab_eval:
                     use_container_width=True
                 )
 
+            # Logical Failure Diagnostic & Gap Analysis UI integration
+            if result.status == EvaluationStatus.REJECTED and result.gap_analysis:
+                st.markdown("---")
+                st.header("🔬 Logical Failure Diagnostic & Gap Analysis")
+                st.info(
+                    "**Under current simulation parameters, target constraint boundaries are violated.** "
+                    "The following structured parameter adjustments are scientifically advised to resolve compliance gaps."
+                )
+
+                # Gather flat numeric gaps to display in a summary table
+                flat_gaps = []
+
+                def _gather_flat_gaps_recursive(node: Dict[str, Any], path_prefix: str = "") -> None:
+                    if "logic" in node:
+                        group_name = node.get("name", "Root Bundle")
+                        prefix = f"{path_prefix} ➡️ {group_name}" if path_prefix else group_name
+                        # Handle both standard 'children' and root level 'constraints' key
+                        children = node.get("children", node.get("constraints", []))
+                        for child in children:
+                            _gather_flat_gaps_recursive(child, prefix)
+                    else:
+                        if node.get("status") == "Failed":
+                            flat_gaps.append({
+                                "Context": path_prefix or "Core Bundle",
+                                "Parameter": node.get("name", "Unknown"),
+                                "Observed": node.get("observed"),
+                                "Threshold": str(node.get("threshold")),
+                                "Required Adjustment": node.get("message", "Violates constraint.")
+                            })
+
+                _gather_flat_gaps_recursive(result.gap_analysis)
+
+                if flat_gaps:
+                    import pandas as pd
+                    df_gaps = pd.DataFrame(flat_gaps)
+                    st.dataframe(df_gaps, use_container_width=True, hide_index=True)
+                else:
+                    st.write("• No numeric parameter gaps detected.")
+
+                # Render a collapsible section showing the full logical tree layout of the failure pathways
+                with st.expander("📋 View Logical Constraint Decision Tree & Pathways", expanded=False):
+                    def _render_tree_node(node: Dict[str, Any], level: int = 0):
+                        indent = "&nbsp;" * (level * 8)
+                        status_emoji = "✅" if node.get("status") == "Passed" else ("❌" if node.get("status") == "Failed" else "⚠️")
+
+                        if "logic" in node:
+                            group_name = node.get("name", "Root Bundle")
+                            st.markdown(
+                                f"{indent}{status_emoji} **Group: `{group_name}`** (Logic: `{node['op'] if 'op' in node else node['logic']}` — `{node['status']}`)",
+                                unsafe_allow_html=True
+                            )
+                            children = node.get("children", node.get("constraints", []))
+                            for child in children:
+                                _render_tree_node(child, level + 1)
+                        else:
+                            st.markdown(
+                                f"{indent}{status_emoji} `{node['name']}`: observed `{node.get('observed')}`, required `{node.get('threshold')}`",
+                                unsafe_allow_html=True
+                            )
+                            if node.get("status") == "Failed" and "message" in node:
+                                st.markdown(
+                                    f"{indent}&nbsp;&nbsp;&nbsp;&nbsp;➡️ *{node['message']}*",
+                                    unsafe_allow_html=True
+                                )
+
+                    _render_tree_node(result.gap_analysis)
+
             # Detailed violation breakdown
             if result.violations:
                 st.markdown("---")
