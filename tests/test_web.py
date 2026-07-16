@@ -338,6 +338,49 @@ class TestCalculator:
         assert b"accepted" in response.content.lower()
 
 
+# ---------------------------------------------------------------------------
+# Sweep
+# ---------------------------------------------------------------------------
+
+class TestSweep:
+    def test_sweep_redirects_unauthenticated(self, client):
+        """GET /sweep redirects unauthenticated users to /login."""
+        response = client.get("/sweep")
+        assert response.status_code == 200
+        assert b"Log In" in response.content or b"login" in response.content.lower()
+
+    def test_sweep_get_returns_html_when_authenticated(self, registered_client):
+        """GET /sweep returns the sweep page for signed-in users."""
+        response = registered_client.get("/sweep")
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert b"Sensitivity Sweep" in response.content
+
+    def test_sweep_post_runs_sweep_and_shows_results(self, registered_client):
+        """POST /sweep evaluates a range of values and renders the visual timeline."""
+        response = registered_client.post(
+            "/sweep",
+            data={
+                "logP": "2.0",
+                "hERG_IC50": "15.0",
+                "beta1_selectivity": "120.0",
+                "sweep_prop": "logP",
+                "sweep_min": "1.0",
+                "sweep_max": "5.0",
+                "sweep_steps": "5",
+                "bundle": "core-safety",
+                "population": "None",
+            },
+        )
+        assert response.status_code == 200
+        body = response.content
+        assert b"Sweep Visualization" in body
+        assert b"Transitions" in body or b"boundary" in body.lower()
+        # Verify the swept values (1.0, 2.0, 3.0, 4.0, 5.0) are present in the table
+        assert b"1.00" in body
+        assert b"3.00" in body
+        assert b"5.00" in body
+
 
 # ---------------------------------------------------------------------------
 # Logs

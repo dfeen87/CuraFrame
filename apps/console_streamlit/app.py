@@ -402,273 +402,520 @@ else:
 
 
 # -----------------------------
-# Evaluation
+# Tabs Configuration
 # -----------------------------
 
 st.markdown("---")
 
-col_button, col_info = st.columns([1, 3])
+tab_eval, tab_sweep = st.tabs(["🔍 Candidate Evaluation", "📈 Parameter Sweep & Boundary Mapping"])
 
-with col_button:
-    evaluate_button = st.button(
-        "🔍 Run Evaluation",
-        type="primary",
-        use_container_width=True
-    )
+with tab_eval:
+    col_button, col_info = st.columns([1, 3])
 
-with col_info:
-    st.caption(
-        "Evaluation checks all constraints in selected bundle. "
-        "Results are non-clinical and hypothetical."
-    )
-
-
-# -----------------------------
-# Results display
-# -----------------------------
-
-if evaluate_button:
-    try:
-        # Parse candidate JSON
-        raw = json.loads(candidate_text)
-        cand = Candidate(
-            name=raw.get("name", "unnamed"),
-            properties=raw.get("properties", {}),
-            provenance=raw.get("provenance")
+    with col_button:
+        evaluate_button = st.button(
+            "🔍 Run Evaluation",
+            type="primary",
+            use_container_width=True
         )
 
-        # Build framework
-        constraints = bundle_info["fn"]()
-        cura = CuraFrame(constraints, name=f"CuraFrame::{bundle_name}")
+    with col_info:
+        st.caption(
+            "Evaluation checks all constraints in selected bundle. "
+            "Results are non-clinical and hypothetical."
+        )
 
-        # Register population modifiers
-        if use_population and population and population in POPULATION_MODIFIERS:
-            pop_mods = {
-                k: v for k, v in POPULATION_MODIFIERS[population].items()
-                if k != "description"
+    # -----------------------------
+    # Results display
+    # -----------------------------
+
+    if evaluate_button:
+        try:
+            # Parse candidate JSON
+            raw = json.loads(candidate_text)
+            cand = Candidate(
+                name=raw.get("name", "unnamed"),
+                properties=raw.get("properties", {}),
+                provenance=raw.get("provenance")
+            )
+
+            # Build framework
+            constraints = bundle_info["fn"]()
+            cura = CuraFrame(constraints, name=f"CuraFrame::{bundle_name}")
+
+            # Register population modifiers
+            if use_population and population and population in POPULATION_MODIFIERS:
+                pop_mods = {
+                    k: v for k, v in POPULATION_MODIFIERS[population].items()
+                    if k != "description"
+                }
+                cura.add_population(population, pop_mods)
+
+            # Evaluate
+            pop_arg = population if use_population else None
+            result = cura.evaluate(cand, population=pop_arg, strict=strict)
+
+            # Store in session state
+            st.session_state['last_result'] = result
+            st.session_state['last_candidate'] = cand
+            st.session_state['last_cura'] = cura
+            st.session_state['last_bundle'] = bundle_name
+            st.session_state['last_pop'] = pop_arg
+            st.session_state['last_strict'] = strict
+
+        except json.JSONDecodeError as e:
+            st.error(f"❌ **Invalid JSON:** {e}")
+            st.code(candidate_text, language="json")
+        except Exception as e:
+            st.error(f"❌ **Evaluation failed:** {e}")
+            st.exception(e)
+
+    if 'last_result' in st.session_state:
+        result = st.session_state['last_result']
+        cand = st.session_state['last_candidate']
+        cura = st.session_state['last_cura']
+        # Use stored config for consistency in display
+
+        try:
+            # Display results
+            st.markdown("---")
+            st.header("📊 Evaluation Results")
+
+            # AILEE Trust Score (deterministic: based on constraint confidence data)
+            if use_ailee:
+                if result.status == EvaluationStatus.ACCEPTED:
+                    # Trust bounded by the least-certain constraint (weakest link)
+                    confidences = [
+                        c.provenance.confidence if c.provenance else 1.0
+                        for c in cura.safety_constraints
+                    ]
+                    trust_score = min(confidences) if confidences else 0.0
+                elif result.status == EvaluationStatus.REJECTED:
+                    # Trust in rejection based on the most confident violation
+                    trust_score = max(
+                        (v.confidence for v in result.violations), default=0.0
+                    )
+                else:  # INDETERMINATE
+                    trust_score = 0.0
+                st.info(f"🛡️ **AILEE Trust Score:** {trust_score:.2f}")
+
+            # Status banner
+            status_color = {
+                EvaluationStatus.ACCEPTED: "success",
+                EvaluationStatus.REJECTED: "error",
+                EvaluationStatus.INDETERMINATE: "warning"
             }
-            cura.add_population(population, pop_mods)
 
-        # Evaluate
-        pop_arg = population if use_population else None
-        result = cura.evaluate(cand, population=pop_arg, strict=strict)
-
-        # Store in session state
-        st.session_state['last_result'] = result
-        st.session_state['last_candidate'] = cand
-        st.session_state['last_cura'] = cura
-        st.session_state['last_bundle'] = bundle_name
-        st.session_state['last_pop'] = pop_arg
-        st.session_state['last_strict'] = strict
-
-    except json.JSONDecodeError as e:
-        st.error(f"❌ **Invalid JSON:** {e}")
-        st.code(candidate_text, language="json")
-    except Exception as e:
-        st.error(f"❌ **Evaluation failed:** {e}")
-        st.exception(e)
-
-if 'last_result' in st.session_state:
-    result = st.session_state['last_result']
-    cand = st.session_state['last_candidate']
-    cura = st.session_state['last_cura']
-    # Use stored config for consistency in display
-
-    try:
-        # Display results
-        st.markdown("---")
-        st.header("📊 Evaluation Results")
-
-        # AILEE Trust Score (deterministic: based on constraint confidence data)
-        if use_ailee:
-            if result.status == EvaluationStatus.ACCEPTED:
-                # Trust bounded by the least-certain constraint (weakest link)
-                confidences = [
-                    c.provenance.confidence if c.provenance else 1.0
-                    for c in cura.safety_constraints
-                ]
-                trust_score = min(confidences) if confidences else 0.0
-            elif result.status == EvaluationStatus.REJECTED:
-                # Trust in rejection based on the most confident violation
-                trust_score = max(
-                    (v.confidence for v in result.violations), default=0.0
-                )
-            else:  # INDETERMINATE
-                trust_score = 0.0
-            st.info(f"🛡️ **AILEE Trust Score:** {trust_score:.2f}")
-
-        # Status banner
-        status_color = {
-            EvaluationStatus.ACCEPTED: "success",
-            EvaluationStatus.REJECTED: "error",
-            EvaluationStatus.INDETERMINATE: "warning"
-        }
-
-        status_icon = {
-            EvaluationStatus.ACCEPTED: "✅",
-            EvaluationStatus.REJECTED: "❌",
-            EvaluationStatus.INDETERMINATE: "⚠️"
-        }
-
-        st.markdown(
-            f"### {status_icon[result.status]} Status: "
-            f"`{result.status.value.upper()}`"
-        )
-
-        # Summary
-        col_summary, col_export = st.columns([2, 1])
-
-        with col_summary:
-            st.subheader("Summary")
-            st.code(result.summary(), language="text")
-
-            # Email Button
-            subject = f"CuraFrame Result: {cand.name} - {result.status.value.upper()}"
-            body = result.summary()
-
-            # Simple mailto link
-            mailto_link = f"mailto:?subject={urllib.parse.quote(subject)}&body={urllib.parse.quote(body)}"
+            status_icon = {
+                EvaluationStatus.ACCEPTED: "✅",
+                EvaluationStatus.REJECTED: "❌",
+                EvaluationStatus.INDETERMINATE: "⚠️"
+            }
 
             st.markdown(
-                f"""
-                <a href="{mailto_link}" target="_blank">
-                    <button style="
-                        display: inline-flex;
-                        -webkit-box-align: center;
-                        align-items: center;
-                        -webkit-box-pack: center;
-                        justify-content: center;
-                        font-weight: 400;
-                        padding: 0.25rem 0.75rem;
-                        border-radius: 0.25rem;
-                        margin: 0px;
-                        line-height: 1.6;
-                        color: rgb(49, 51, 63);
-                        background-color: rgb(255, 255, 255);
-                        width: auto;
-                        border: 1px solid rgba(49, 51, 63, 0.2);
-                        cursor: pointer;
-                        text-decoration: none;
-                    ">
-                    📧 Email Results
-                    </button>
-                </a>
-                """,
-                unsafe_allow_html=True
+                f"### {status_icon[result.status]} Status: "
+                f"`{result.status.value.upper()}`"
             )
 
-        with col_export:
-            st.subheader("Export")
+            # Summary
+            col_summary, col_export = st.columns([2, 1])
 
-            if st.button("💾 Save to History", type="primary", use_container_width=True):
-                if db_auth.save_log(st.session_state['user'], cand.properties, bundle_name, result.status.value):
-                    st.success("Saved to history!")
+            with col_summary:
+                st.subheader("Summary")
+                st.code(result.summary(), language="text")
+
+                # Email Button
+                subject = f"CuraFrame Result: {cand.name} - {result.status.value.upper()}"
+                body = result.summary()
+
+                # Simple mailto link
+                mailto_link = f"mailto:?subject={urllib.parse.quote(subject)}&body={urllib.parse.quote(body)}"
+
+                st.markdown(
+                    f"""
+                    <a href="{mailto_link}" target="_blank">
+                        <button style="
+                            display: inline-flex;
+                            -webkit-box-align: center;
+                            align-items: center;
+                            -webkit-box-pack: center;
+                            justify-content: center;
+                            font-weight: 400;
+                            padding: 0.25rem 0.75rem;
+                            border-radius: 0.25rem;
+                            margin: 0px;
+                            line-height: 1.6;
+                            color: rgb(49, 51, 63);
+                            background-color: rgb(255, 255, 255);
+                            width: auto;
+                            border: 1px solid rgba(49, 51, 63, 0.2);
+                            cursor: pointer;
+                            text-decoration: none;
+                        ">
+                        📧 Email Results
+                        </button>
+                    </a>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+            with col_export:
+                st.subheader("Export")
+
+                if st.button("💾 Save to History", type="primary", use_container_width=True):
+                    if db_auth.save_log(st.session_state['user'], cand.properties, bundle_name, result.status.value):
+                        st.success("Saved to history!")
+                    else:
+                        st.error("Failed to save.")
+
+                # Export results as JSON
+                export_data = {
+                    "candidate": {
+                        "name": cand.name,
+                        "properties": cand.properties,
+                        "provenance": cand.provenance
+                    },
+                    "evaluation": {
+                        "status": result.status.value,
+                        "violations": [
+                            {
+                                "constraint": v.constraint,
+                                "observed": str(v.observed),
+                                "threshold": str(v.threshold),
+                                "severity": v.severity.value,
+                                "rationale": v.rationale
+                            }
+                            for v in result.violations
+                        ],
+                        "warnings": result.warnings,
+                        "notes": result.notes
+                    },
+                    "configuration": {
+                        "bundle": bundle_name,
+                        "population": pop_arg,
+                        "strict": strict
+                    }
+                }
+
+                st.download_button(
+                    "⬇️ Download Results (JSON)",
+                    data=json.dumps(export_data, indent=2),
+                    file_name=f"curaframe_result_{cand.name}.json",
+                    mime="application/json",
+                    use_container_width=True
+                )
+
+                # Export summary as plain text (easy log sharing)
+                st.download_button(
+                    "⬇️ Download Summary (Text)",
+                    data=result.summary(),
+                    file_name=f"curaframe_summary_{cand.name}.txt",
+                    mime="text/plain",
+                    use_container_width=True
+                )
+
+                # Export constraint metadata
+                st.download_button(
+                    "⬇️ Download Constraints (JSON)",
+                    data=json.dumps(cura.export_constraints(), indent=2),
+                    file_name=f"curaframe_constraints_{bundle_name}.json",
+                    mime="application/json",
+                    use_container_width=True
+                )
+
+            # Detailed violation breakdown
+            if result.violations:
+                st.markdown("---")
+                st.subheader("🔴 Constraint Violations")
+
+                for i, violation in enumerate(result.violations, 1):
+                    severity_color = {
+                        Severity.CRITICAL: "🔴",
+                        Severity.SEVERE: "🟠",
+                        Severity.WARNING: "🟡"
+                    }
+
+                    with st.expander(
+                        f"{severity_color[violation.severity]} "
+                        f"**{violation.constraint}** — "
+                        f"{violation.severity.value.upper()}",
+                        expanded=(i <= 3)  # Auto-expand first 3
+                    ):
+                        col_v1, col_v2 = st.columns(2)
+
+                        with col_v1:
+                            st.metric("Observed", f"{violation.observed}")
+                            st.metric("Threshold", f"{violation.threshold}")
+
+                        with col_v2:
+                            st.metric("Severity", violation.severity.value.upper())
+                            st.metric("Confidence", f"{violation.confidence:.2f}")
+
+                        st.markdown(f"**Rationale:** {violation.rationale}")
+
+            # Warnings
+            if result.warnings:
+                st.markdown("---")
+                st.subheader("⚠️ Warnings")
+                for warning in result.warnings:
+                    st.warning(warning)
+
+            # Constraint details
+            with st.expander("📋 View All Constraints in Bundle"):
+                st.json(cura.export_constraints())
+
+        except json.JSONDecodeError as e:
+            st.error(f"❌ **Invalid JSON:** {e}")
+            st.code(candidate_text, language="json")
+
+        except Exception as e:
+            st.error(f"❌ **Evaluation failed:** {e}")
+            st.exception(e)
+
+
+with tab_sweep:
+    st.header("📈 Parameter Sweep & Boundary Mapping")
+    st.caption("Map the safety boundaries of the hypothetical design by sweeping properties across specified ranges.")
+
+    # Get available properties for the selected bundle
+    constraints = bundle_info["fn"]()
+    property_names = sorted(list(set(c.name for c in constraints)))
+
+    if not property_names:
+        st.warning("No properties available in this constraint bundle to sweep.")
+    else:
+        col_sweep_cfg, col_sweep_run = st.columns([2, 1])
+
+        with col_sweep_cfg:
+            sweep_type = st.radio("Sweep Dimension", ["1D Sweep", "2D Sweep"], horizontal=True, key="sweep_type_radio")
+
+            if sweep_type == "1D Sweep":
+                sweep_prop = st.selectbox("Select Property to Sweep", property_names, key="sweep_prop_select")
+
+                # Provide sensible default min/max based on property name
+                default_min = 0.0
+                default_max = 10.0
+                if sweep_prop == "logP":
+                    default_min, default_max = 0.0, 6.0
+                elif "IC50" in sweep_prop:
+                    default_min, default_max = 0.0, 40.0
+                elif "selectivity" in sweep_prop:
+                    default_min, default_max = 0.0, 300.0
+                elif "weight" in sweep_prop:
+                    default_min, default_max = 100.0, 600.0
+                elif "area" in sweep_prop:
+                    default_min, default_max = 20.0, 150.0
+                elif "half_life" in sweep_prop:
+                    default_min, default_max = 0.0, 36.0
+                elif "bioavailability" in sweep_prop:
+                    default_min, default_max = 0.0, 100.0
+                elif "binding" in sweep_prop:
+                    default_min, default_max = 50.0, 100.0
+                elif "solubility" in sweep_prop:
+                    default_min, default_max = 0.0, 200.0
+                elif "Kd" in sweep_prop:
+                    default_min, default_max = 0.0, 2000.0
+
+                col_range_min, col_range_max, col_range_steps = st.columns(3)
+                with col_range_min:
+                    sweep_min = st.number_input("Min Value", value=default_min, format="%.2f", key="sweep_min_input")
+                with col_range_max:
+                    sweep_max = st.number_input("Max Value", value=default_max, format="%.2f", key="sweep_max_input")
+                with col_range_steps:
+                    sweep_steps = st.number_input("Steps", value=20, min_value=2, max_value=100, key="sweep_steps_input")
+
+            else:  # 2D Sweep
+                sweep_prop1 = st.selectbox("Select Property 1 (X-axis)", property_names, index=0, key="sweep_prop1_select")
+                sweep_prop2 = st.selectbox("Select Property 2 (Y-axis)", property_names, index=min(1, len(property_names)-1), key="sweep_prop2_select")
+
+                # Default ranges
+                default_min1, default_max1 = 0.0, 10.0
+                if sweep_prop1 == "logP":
+                    default_min1, default_max1 = 0.0, 6.0
+                elif "IC50" in sweep_prop1:
+                    default_min1, default_max1 = 0.0, 40.0
+                elif "selectivity" in sweep_prop1:
+                    default_min1, default_max1 = 0.0, 300.0
+
+                default_min2, default_max2 = 0.0, 10.0
+                if sweep_prop2 == "logP":
+                    default_min2, default_max2 = 0.0, 6.0
+                elif "IC50" in sweep_prop2:
+                    default_min2, default_max2 = 0.0, 40.0
+                elif "selectivity" in sweep_prop2:
+                    default_min2, default_max2 = 0.0, 300.0
+
+                col_range_min1, col_range_max1, col_range_steps1 = st.columns(3)
+                with col_range_min1:
+                    sweep_min1 = st.number_input("Prop 1 Min", value=default_min1, format="%.2f", key="sweep_min1_input")
+                with col_range_max1:
+                    sweep_max1 = st.number_input("Prop 1 Max", value=default_max1, format="%.2f", key="sweep_max1_input")
+                with col_range_steps1:
+                    sweep_steps1 = st.number_input("Prop 1 Steps", value=10, min_value=2, max_value=30, key="sweep_steps1_input")
+
+                col_range_min2, col_range_max2, col_range_steps2 = st.columns(3)
+                with col_range_min2:
+                    sweep_min2 = st.number_input("Prop 2 Min", value=default_min2, format="%.2f", key="sweep_min2_input")
+                with col_range_max2:
+                    sweep_max2 = st.number_input("Prop 2 Max", value=default_max2, format="%.2f", key="sweep_max2_input")
+                with col_range_steps2:
+                    sweep_steps2 = st.number_input("Prop 2 Steps", value=10, min_value=2, max_value=30, key="sweep_steps2_input")
+
+        with col_sweep_run:
+            st.markdown("<br><br>", unsafe_allow_html=True)
+            run_sweep_button = st.button("🚀 Run Parameter Sweep", type="primary", use_container_width=True, key="run_sweep_btn")
+            compare_populations = False
+            if sweep_type == "1D Sweep" and use_population and population:
+                compare_populations = st.checkbox("Compare with General Population", value=True, key="compare_pop_chk")
+
+        if run_sweep_button:
+            try:
+                # Import sweep logic
+                from cura_frame.sensitivity import run_1d_sweep, run_2d_sweep, find_inflection_points
+                import pandas as pd
+                import altair as alt
+
+                # Parse candidate JSON
+                raw = json.loads(candidate_text)
+                cand = Candidate(
+                    name=raw.get("name", "unnamed"),
+                    properties=raw.get("properties", {}),
+                    provenance=raw.get("provenance")
+                )
+
+                # Build framework and register population modifiers
+                constraints = bundle_info["fn"]()
+                cura = CuraFrame(constraints, name=f"CuraFrame::{bundle_name}")
+                if use_population and population and population in POPULATION_MODIFIERS:
+                    pop_mods = {k: v for k, v in POPULATION_MODIFIERS[population].items() if k != "description"}
+                    cura.add_population(population, pop_mods)
+
+                pop_arg = population if use_population else None
+
+                st.markdown("---")
+                st.subheader("📊 Sweep Results & Analysis")
+
+                if sweep_type == "1D Sweep":
+                    if compare_populations and pop_arg:
+                        results_gen = run_1d_sweep(cura, cand, sweep_prop, sweep_min, sweep_max, sweep_steps, population=None, strict=strict)
+                        results_pop = run_1d_sweep(cura, cand, sweep_prop, sweep_min, sweep_max, sweep_steps, population=pop_arg, strict=strict)
+
+                        df_gen = pd.DataFrame(results_gen)
+                        df_gen['Population'] = 'General'
+
+                        df_pop = pd.DataFrame(results_pop)
+                        df_pop['Population'] = pop_arg.capitalize()
+
+                        df_all = pd.concat([df_gen, df_pop])
+                        df_all['status_str'] = df_all['status'].apply(lambda s: s.value.upper())
+
+                        # Interactive plot with columns/facets
+                        chart = alt.Chart(df_all).mark_point(size=120, filled=True).encode(
+                            x=alt.X('value:Q', title=sweep_prop),
+                            y=alt.Y('status_str:N', title='Status', sort=['ACCEPTED', 'INDETERMINATE', 'REJECTED']),
+                            color=alt.Color('status_str:N', scale=alt.Scale(
+                                domain=['ACCEPTED', 'INDETERMINATE', 'REJECTED'],
+                                range=['#2ecc71', '#f39c12', '#e74c3c']
+                            ), title="Status"),
+                            shape=alt.Shape('Population:N', title="Population Context"),
+                            row=alt.Row('Population:N', title='Population Context'),
+                            tooltip=['value', 'status_str', 'violations']
+                        ).properties(
+                            height=150,
+                            width=600
+                        ).interactive()
+
+                        st.altair_chart(chart, use_container_width=True)
+
+                        # Show Inflection points for both
+                        col_infl_gen, col_infl_pop = st.columns(2)
+                        with col_infl_gen:
+                            st.write("**General Population Transitions:**")
+                            inflections_gen = find_inflection_points(results_gen)
+                            if inflections_gen:
+                                for inf in inflections_gen:
+                                    st.success(f"Boundary: `{inf['value_from']:.2f}` to `{inf['value_to']:.2f}`")
+                                    st.write(f"Transition: `{inf['status_from'].value.upper()}` ➡️ `{inf['status_to'].value.upper()}`")
+                                    if inf['violations_to']:
+                                        st.write(f"Violations triggered: {', '.join(inf['violations_to'])}")
+                            else:
+                                st.info("No transitions detected across the sweep range.")
+
+                        with col_infl_pop:
+                            st.write(f"**{pop_arg.capitalize()} Population Transitions:**")
+                            inflections_pop = find_inflection_points(results_pop)
+                            if inflections_pop:
+                                for inf in inflections_pop:
+                                    st.success(f"Boundary: `{inf['value_from']:.2f}` to `{inf['value_to']:.2f}`")
+                                    st.write(f"Transition: `{inf['status_from'].value.upper()}` ➡️ `{inf['status_to'].value.upper()}`")
+                                    if inf['violations_to']:
+                                        st.write(f"Violations triggered: {', '.join(inf['violations_to'])}")
+                            else:
+                                st.info("No transitions detected across the sweep range.")
+                    else:
+                        # Non-comparison 1D sweep
+                        results = run_1d_sweep(cura, cand, sweep_prop, sweep_min, sweep_max, sweep_steps, population=pop_arg, strict=strict)
+                        df = pd.DataFrame(results)
+                        df['status_str'] = df['status'].apply(lambda s: s.value.upper())
+
+                        chart = alt.Chart(df).mark_point(size=120, filled=True).encode(
+                            x=alt.X('value:Q', title=sweep_prop),
+                            y=alt.Y('status_str:N', title='Status', sort=['ACCEPTED', 'INDETERMINATE', 'REJECTED']),
+                            color=alt.Color('status_str:N', scale=alt.Scale(
+                                domain=['ACCEPTED', 'INDETERMINATE', 'REJECTED'],
+                                range=['#2ecc71', '#f39c12', '#e74c3c']
+                            ), title="Status"),
+                            tooltip=['value', 'status_str', 'violations']
+                        ).properties(
+                            height=250,
+                            width=600
+                        ).interactive()
+
+                        st.altair_chart(chart, use_container_width=True)
+
+                        st.write("**Transitions / Boundaries Detected:**")
+                        inflections = find_inflection_points(results)
+                        if inflections:
+                            for inf in inflections:
+                                st.success(f"Boundary: `{inf['value_from']:.2f}` to `{inf['value_to']:.2f}`")
+                                st.write(f"Transition: `{inf['status_from'].value.upper()}` ➡️ `{inf['status_to'].value.upper()}`")
+                                if inf['violations_to']:
+                                    st.write(f"Violations triggered: {', '.join(inf['violations_to'])}")
+                        else:
+                            st.info("No transitions detected across the sweep range.")
+
                 else:
-                    st.error("Failed to save.")
+                    # 2D Sweep
+                    results = run_2d_sweep(
+                        cura, cand, sweep_prop1, sweep_min1, sweep_max1,
+                        sweep_prop2, sweep_min2, sweep_max2,
+                        sweep_steps1, sweep_steps2, population=pop_arg, strict=strict
+                    )
+                    df = pd.DataFrame(results)
+                    df['status_str'] = df['status'].apply(lambda s: s.value.upper())
 
-            # Export results as JSON
-            export_data = {
-                "candidate": {
-                    "name": cand.name,
-                    "properties": cand.properties,
-                    "provenance": cand.provenance
-                },
-                "evaluation": {
-                    "status": result.status.value,
-                    "violations": [
-                        {
-                            "constraint": v.constraint,
-                            "observed": str(v.observed),
-                            "threshold": str(v.threshold),
-                            "severity": v.severity.value,
-                            "rationale": v.rationale
-                        }
-                        for v in result.violations
-                    ],
-                    "warnings": result.warnings,
-                    "notes": result.notes
-                },
-                "configuration": {
-                    "bundle": bundle_name,
-                    "population": pop_arg,
-                    "strict": strict
-                }
-            }
+                    # Draw an Altair Rect heatmap grid
+                    chart = alt.Chart(df).mark_rect().encode(
+                        x=alt.X('value1:O', title=sweep_prop1, axis=alt.Axis(format=".2f")),
+                        y=alt.Y('value2:O', title=sweep_prop2, axis=alt.Axis(format=".2f")),
+                        color=alt.Color('status_str:N', scale=alt.Scale(
+                            domain=['ACCEPTED', 'INDETERMINATE', 'REJECTED'],
+                            range=['#2ecc71', '#f39c12', '#e74c3c']
+                        ), title="Status"),
+                        tooltip=['value1', 'value2', 'status_str', 'violations']
+                    ).properties(
+                        height=400,
+                        width=600
+                    ).interactive()
 
-            st.download_button(
-                "⬇️ Download Results (JSON)",
-                data=json.dumps(export_data, indent=2),
-                file_name=f"curaframe_result_{cand.name}.json",
-                mime="application/json",
-                use_container_width=True
-            )
+                    st.altair_chart(chart, use_container_width=True)
+                    st.info("💡 Tip: Hover over the grid cells to view precise values and active violations.")
 
-            # Export summary as plain text (easy log sharing)
-            st.download_button(
-                "⬇️ Download Summary (Text)",
-                data=result.summary(),
-                file_name=f"curaframe_summary_{cand.name}.txt",
-                mime="text/plain",
-                use_container_width=True
-            )
-
-            # Export constraint metadata
-            st.download_button(
-                "⬇️ Download Constraints (JSON)",
-                data=json.dumps(cura.export_constraints(), indent=2),
-                file_name=f"curaframe_constraints_{bundle_name}.json",
-                mime="application/json",
-                use_container_width=True
-            )
-
-        # Detailed violation breakdown
-        if result.violations:
-            st.markdown("---")
-            st.subheader("🔴 Constraint Violations")
-
-            for i, violation in enumerate(result.violations, 1):
-                severity_color = {
-                    Severity.CRITICAL: "🔴",
-                    Severity.SEVERE: "🟠",
-                    Severity.WARNING: "🟡"
-                }
-
-                with st.expander(
-                    f"{severity_color[violation.severity]} "
-                    f"**{violation.constraint}** — "
-                    f"{violation.severity.value.upper()}",
-                    expanded=(i <= 3)  # Auto-expand first 3
-                ):
-                    col_v1, col_v2 = st.columns(2)
-
-                    with col_v1:
-                        st.metric("Observed", f"{violation.observed}")
-                        st.metric("Threshold", f"{violation.threshold}")
-
-                    with col_v2:
-                        st.metric("Severity", violation.severity.value.upper())
-                        st.metric("Confidence", f"{violation.confidence:.2f}")
-
-                    st.markdown(f"**Rationale:** {violation.rationale}")
-
-        # Warnings
-        if result.warnings:
-            st.markdown("---")
-            st.subheader("⚠️ Warnings")
-            for warning in result.warnings:
-                st.warning(warning)
-
-        # Constraint details
-        with st.expander("📋 View All Constraints in Bundle"):
-            st.json(cura.export_constraints())
-
-    except json.JSONDecodeError as e:
-        st.error(f"❌ **Invalid JSON:** {e}")
-        st.code(candidate_text, language="json")
-
-    except Exception as e:
-        st.error(f"❌ **Evaluation failed:** {e}")
-        st.exception(e)
+            except json.JSONDecodeError as e:
+                st.error(f"❌ **Invalid JSON:** {e}")
+            except Exception as e:
+                st.error(f"❌ **Sweep execution failed:** {e}")
+                st.exception(e)
 
 
 # -----------------------------
