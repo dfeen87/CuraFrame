@@ -249,10 +249,21 @@ with st.sidebar:
     st.header("⚙️ Configuration")
 
     # Bundle selection
-    bundle_name = st.selectbox(
-        "Constraint Bundle",
+    selected_bundles = st.multiselect(
+        "Constraint Bundles",
         list(BUNDLES.keys()),
-        help="Select a predefined constraint set"
+        default=list(BUNDLES.keys()),
+        help="Select constraint bundles to include in multi-bundle analysis"
+    )
+
+    if not selected_bundles:
+        st.warning("Please select at least one constraint bundle.")
+        st.stop()
+
+    bundle_name = st.selectbox(
+        "Active Bundle for Single-Evaluation/Sweep",
+        selected_bundles,
+        help="Choose one of the selected bundles to focus on for Candidate Evaluation and Parameter Sweep"
     )
 
     # Show bundle description
@@ -381,8 +392,11 @@ st.header("📝 Candidate Definition")
 st.caption("Enter candidate properties below. Fields are derived from the selected constraint bundle.")
 
 # Dynamic Form Generation
-constraints = bundle_info["fn"]()
-property_names = sorted(list(set(c.name for c in constraints)))
+all_selected_constraints = []
+for b_name in selected_bundles:
+    all_selected_constraints.extend(BUNDLES[b_name]["fn"]())
+
+property_names = sorted(list(set(c.name for c in all_selected_constraints)))
 
 form_properties = {}
 
@@ -413,10 +427,11 @@ candidate_text = json.dumps(candidate_dict, indent=2)
 
 st.markdown("---")
 
-tab_eval, tab_sweep, tab_custom = st.tabs([
+tab_eval, tab_sweep, tab_custom, tab_matrix = st.tabs([
     "🔍 Candidate Evaluation",
     "📈 Parameter Sweep & Boundary Mapping",
-    "👥 Custom Population Profiles"
+    "👥 Custom Population Profiles",
+    "📊 Multi-Bundle Matrix"
 ])
 
 with tab_eval:
@@ -1304,6 +1319,287 @@ with tab_custom:
 
                 st.markdown(f"**Test Result:** `{test_result.status.value.upper()}`")
                 st.code(test_result.summary(), language="text")
+
+
+# -----------------------------
+# Tab: Multi-Bundle Matrix
+# -----------------------------
+
+with tab_matrix:
+    st.header("📊 Multi-Bundle Evaluation Matrix")
+    st.caption("Evaluate a single candidate against all (or multiple selected) constraint bundles simultaneously.")
+
+    col_btn, col_info = st.columns([1, 3])
+    with col_btn:
+        generate_matrix_button = st.button(
+            "📊 Generate Multi-Bundle Matrix",
+            type="primary",
+            use_container_width=True,
+            key="generate_matrix_btn"
+        )
+    with col_info:
+        st.caption(
+            "Runs evaluations across all selected bundles using the candidate properties defined above."
+        )
+
+    # We want to display the last generated results if they are in session state
+    if generate_matrix_button:
+        try:
+            # Parse candidate JSON
+            raw = json.loads(candidate_text)
+            cand = Candidate(
+                name=raw.get("name", "unnamed"),
+                properties=raw.get("properties", {}),
+                provenance=raw.get("provenance")
+            )
+
+            matrix_results = {}
+            for b_name in selected_bundles:
+                constraints = BUNDLES[b_name]["fn"]()
+                cura = CuraFrame(constraints, name=f"CuraFrame::{b_name}")
+
+                # Register population modifiers
+                if use_population and population:
+                    if population in POPULATION_MODIFIERS:
+                        pop_mods = {
+                            k: v for k, v in POPULATION_MODIFIERS[population].items()
+                            if k != "description"
+                        }
+                        cura.add_population(population, pop_mods)
+                    else:
+                        custom_pops = db_auth.get_custom_populations(st.session_state['user'])
+                        selected_custom_pop = next((p for p in custom_pops if p["name"] == population), None)
+                        if selected_custom_pop:
+                            pop_mods = {}
+                            for mod in selected_custom_pop["modifiers"]:
+                                param = mod["parameter"]
+                                op = mod["operator"]
+                                val = mod["value"]
+                                pop_mods[param] = make_custom_modifier(op, val)
+                                if param == "clearance":
+                                    pop_mods["hepatic_clearance"] = make_custom_modifier(op, val)
+                                elif param == "hepatic_clearance":
+                                    pop_mods["clearance"] = make_custom_modifier(op, val)
+                            cura.add_population(population, pop_mods)
+
+                # Evaluate
+                pop_arg = population if use_population else None
+                result = cura.evaluate(cand, population=pop_arg, strict=strict)
+                matrix_results[b_name] = {
+                    "result": result,
+                    "cura": cura
+                }
+
+            # Save to session state
+            st.session_state['last_matrix_results'] = matrix_results
+            st.session_state['last_matrix_candidate'] = cand
+            st.session_state['last_matrix_bundles'] = selected_bundles
+            st.session_state['last_matrix_pop'] = population if use_population else None
+            st.session_state['last_matrix_strict'] = strict
+
+        except Exception as e:
+            st.error(f"❌ **Multi-bundle evaluation failed:** {e}")
+            st.exception(e)
+
+    if 'last_matrix_results' in st.session_state:
+        matrix_results = st.session_state['last_matrix_results']
+        cand = st.session_state['last_matrix_candidate']
+        active_bundles = st.session_state['last_matrix_bundles']
+        pop_arg = st.session_state['last_matrix_pop']
+        strict_val = st.session_state['last_matrix_strict']
+
+        import pandas as pd
+
+        # -----------------------------
+        # Layer 1: Summary Table
+        # -----------------------------
+        st.markdown("---")
+        st.subheader("📋 Layer 1: Summary Table")
+
+        summary_data = []
+        for b_name in active_bundles:
+            if b_name not in matrix_results:
+                continue
+            b_info = matrix_results[b_name]
+            res = b_info["result"]
+
+            if res.status == EvaluationStatus.ACCEPTED:
+                emoji_status = "🟢 ACCEPTED"
+            elif res.status == EvaluationStatus.REJECTED:
+                emoji_status = "🔴 REJECTED"
+            else:
+                emoji_status = "🟡 INDET"
+
+            violated_params = ", ".join(sorted(list(set(v.constraint for v in res.violations)))) if res.violations else "None"
+            summary_data.append({
+                "Bundle Name": b_name,
+                "Overall Status": emoji_status,
+                "Violations Count": len(res.violations),
+                "Violated Parameters": violated_params
+            })
+
+        df_summary = pd.DataFrame(summary_data)
+        st.dataframe(df_summary, use_container_width=True, hide_index=True)
+
+        # -----------------------------
+        # Layer 2: Constraint Grid
+        # -----------------------------
+        st.markdown("---")
+        st.subheader("🎯 Layer 2: Constraint Grid")
+
+        # Get dynamic union of parameters
+        all_constraints = []
+        for b_name in active_bundles:
+            all_constraints.extend(BUNDLES[b_name]["fn"]())
+        unique_params = sorted(list(set(c.name for c in all_constraints)))
+
+        grid_data = []
+        for prop in unique_params:
+            row = {"Parameter": prop}
+            for b_name in active_bundles:
+                if b_name not in matrix_results:
+                    row[b_name] = "⚪ —"
+                    continue
+                b_info = matrix_results[b_name]
+                cura = b_info["cura"]
+                res = b_info["result"]
+
+                c_obj = cura.get_constraint(prop)
+                if c_obj is None:
+                    row[b_name] = "⚪ —"
+                else:
+                    if cand.get(prop) is None:
+                        row[b_name] = "🟡 INDET"
+                    else:
+                        is_violated = any(v.constraint == prop for v in res.violations)
+                        if is_violated:
+                            row[b_name] = "🔴 FAIL"
+                        else:
+                            row[b_name] = "🟢 PASS"
+            grid_data.append(row)
+
+        df_grid = pd.DataFrame(grid_data)
+
+        def style_cells(val):
+            if val == "🟢 PASS":
+                return "background-color: #d4edda; color: #155724; font-weight: bold;"
+            elif val == "🔴 FAIL":
+                return "background-color: #f8d7da; color: #721c24; font-weight: bold;"
+            elif val == "🟡 INDET":
+                return "background-color: #fff3cd; color: #856404; font-weight: bold;"
+            elif val == "⚪ —":
+                return "background-color: #e2e3e5; color: #383d41;"
+            return ""
+
+        if hasattr(df_grid.style, "map"):
+            styled_grid = df_grid.style.map(style_cells, subset=active_bundles)
+        else:
+            styled_grid = df_grid.style.applymap(style_cells, subset=active_bundles)
+
+        st.dataframe(styled_grid, use_container_width=True, hide_index=True)
+
+        # -----------------------------
+        # Cross-Therapeutic Profile Warnings
+        # -----------------------------
+        st.markdown("---")
+        st.subheader("⚠️ Cross-Therapeutic Profile Warnings")
+
+        cross_warnings = []
+        accepted_list = []
+        rejected_list = []
+
+        for b_name in active_bundles:
+            if b_name not in matrix_results:
+                continue
+            res = matrix_results[b_name]["result"]
+            if res.status == EvaluationStatus.ACCEPTED:
+                accepted_list.append(b_name)
+            elif res.status == EvaluationStatus.REJECTED:
+                rejected_list.append(b_name)
+
+        for acc in accepted_list:
+            for rej in rejected_list:
+                rej_info = matrix_results[rej]
+                crit_violations = [v for v in rej_info["result"].violations if v.severity == Severity.CRITICAL]
+                for cv in crit_violations:
+                    title = "Cross-Therapeutic Warning"
+                    if "Cardiol" in rej:
+                        title = "Cardiac Risk Warning"
+                    elif "CNS" in rej:
+                        title = "CNS Safety Warning"
+                    elif "Safety" in rej:
+                        title = "Core Safety Warning"
+
+                    warning_text = (
+                        f"**{title}:** Candidate meets **{acc}** criteria but fails **{rej}** constraints "
+                        f"due to a CRITICAL violation: **{cv.constraint}** (observed: {cv.observed}, required: {cv.threshold}). "
+                        f"\n\n*Rationale:* {cv.rationale}"
+                    )
+                    cross_warnings.append(warning_text)
+
+        if cross_warnings:
+            for cw in cross_warnings:
+                st.warning(cw)
+        else:
+            st.success("No cross-therapeutic profile warnings detected. Candidate profile is consistent across all evaluated domains.")
+
+        # -----------------------------
+        # Export Capabilities
+        # -----------------------------
+        st.markdown("---")
+        st.subheader("💾 Export Options")
+
+        col_exp1, col_exp2, col_exp3 = st.columns(3)
+
+        with col_exp1:
+            # JSON Export
+            export_json_data = {
+                "candidate": {
+                    "name": cand.name,
+                    "properties": cand.properties,
+                    "provenance": cand.provenance
+                },
+                "configuration": {
+                    "population": pop_arg,
+                    "strict": strict_val,
+                    "evaluated_bundles": active_bundles
+                },
+                "matrix_summary": summary_data,
+                "grid": grid_data,
+                "cross_warnings": cross_warnings
+            }
+            st.download_button(
+                "⬇️ Download Matrix Results (JSON)",
+                data=json.dumps(export_json_data, indent=2),
+                file_name=f"curaframe_matrix_{cand.name}.json",
+                mime="application/json",
+                use_container_width=True,
+                key="download_json_matrix_btn"
+            )
+
+        with col_exp2:
+            # Summary Table CSV Export
+            csv_summary = df_summary.to_csv(index=False)
+            st.download_button(
+                "⬇️ Download Summary Table (CSV)",
+                data=csv_summary,
+                file_name=f"curaframe_matrix_summary_{cand.name}.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="download_csv_summary_btn"
+            )
+
+        with col_exp3:
+            # Constraint Grid CSV Export
+            csv_grid = df_grid.to_csv(index=False)
+            st.download_button(
+                "⬇️ Download Constraint Grid (CSV)",
+                data=csv_grid,
+                file_name=f"curaframe_matrix_grid_{cand.name}.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="download_csv_grid_btn"
+            )
 
 # Credits
 st.markdown("---")
