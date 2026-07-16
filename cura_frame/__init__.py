@@ -16,6 +16,8 @@ __version__ = "3.0.0"
 from .core import (
     CuraFrame,
     Constraint,
+    ConstraintGroup,
+    LogicOp,
     Provenance,
     Candidate,
     EvaluationResult,
@@ -68,6 +70,8 @@ __all__ = [
     # Core engine & primitives
     "CuraFrame",
     "Constraint",
+    "ConstraintGroup",
+    "LogicOp",
     "Provenance",
     "Candidate",
     "EvaluationResult",

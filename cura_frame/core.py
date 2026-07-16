@@ -53,6 +53,35 @@ class Severity(Enum):
 # Constraint primitives
 # -----------------------------
 
+class LogicOp(Enum):
+    """Logical operators for grouping constraints."""
+    AND = "AND"
+    OR = "OR"
+
+
+@dataclass
+class ConstraintGroup:
+    """
+    Groups constraints with a logical operator (AND / OR).
+    Allows nesting of constraints and alternative evaluation pathways.
+    """
+    name: str
+    op: LogicOp
+    children: List[Union[Constraint, ConstraintGroup]]
+    rationale: Optional[str] = None
+    severity: Severity = Severity.CRITICAL
+
+    def copy(self) -> ConstraintGroup:
+        """Recursively copy the constraint group and all its children."""
+        return ConstraintGroup(
+            name=self.name,
+            op=self.op,
+            children=[child.copy() for child in self.children],
+            rationale=self.rationale,
+            severity=self.severity
+        )
+
+
 @dataclass
 class Provenance:
     """
@@ -195,12 +224,14 @@ class EvaluationResult:
         warnings: Non-critical issues flagged during evaluation
         notes: Additional context or explanations
         candidate_name: Name of evaluated candidate (for logging)
+        gap_analysis: Structured logical diagnostic advising on exact gaps (optional)
     """
     status: EvaluationStatus
     violations: List[Violation] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
     notes: Optional[str] = None
     candidate_name: Optional[str] = None
+    gap_analysis: Optional[Dict[str, Any]] = None
 
     def is_accepted(self) -> bool:
         return self.status == EvaluationStatus.ACCEPTED
@@ -238,6 +269,52 @@ class EvaluationResult:
 
         if self.notes:
             lines.append(f"\nNotes: {self.notes}")
+
+        # Add Logical Failure Diagnostic / Gap Analysis if rejected or failed
+        if self.status == EvaluationStatus.REJECTED and self.gap_analysis:
+            lines.append("\n==================================================")
+            lines.append("Logical Failure Diagnostic & Gap Analysis")
+            lines.append("==================================================")
+            lines.append("Under current simulation parameters, target constraint boundaries are violated.")
+            lines.append("The following scientific parameter adjustments are advised:\n")
+
+            def _format_gap_text_recursive(node: Dict[str, Any], depth: int = 0) -> List[str]:
+                output_lines = []
+                indent = "  " * depth
+                if "logic" in node:
+                    # Logical group
+                    children = node.get("children", [])
+                    failed_children = [c for c in children if c.get("status") == "Failed"]
+                    if failed_children:
+                        op_str = f" {node['logic']} "
+                        child_msgs = []
+                        for child in failed_children:
+                            for l in _format_gap_text_recursive(child, depth + 1):
+                                child_msgs.append(l)
+
+                        # Format list with logical operations
+                        for idx, l in enumerate(child_msgs):
+                            if idx > 0:
+                                output_lines.append(f"{indent}• {node['logic']} {l.strip()}")
+                            else:
+                                output_lines.append(f"{indent}• {l.strip()}")
+                else:
+                    # Flat leaf constraint
+                    if node.get("status") == "Failed":
+                        msg = node.get("message")
+                        if msg:
+                            output_lines.append(f"{msg}")
+                return output_lines
+
+            diagnostic_lines = []
+            for item in self.gap_analysis.get("constraints", []):
+                diagnostic_lines.extend(_format_gap_text_recursive(item))
+
+            if diagnostic_lines:
+                lines.extend(diagnostic_lines)
+            else:
+                lines.append("• No numeric parameter gaps detected.")
+            lines.append("==================================================")
 
         return "\n".join(lines)
 
@@ -351,14 +428,14 @@ class PopulationStratification:
     def apply(
         self,
         population: Optional[str],
-        constraints: List[Constraint]
-    ) -> List[Constraint]:
+        constraints: List[Union[Constraint, ConstraintGroup]]
+    ) -> List[Union[Constraint, ConstraintGroup]]:
         """
-        Apply population-specific modifiers to constraints.
+        Apply population-specific modifiers to constraints or constraint groups.
 
         Args:
             population: Population name (None = no modifications)
-            constraints: Base constraints to modify
+            constraints: Base constraints/groups to modify
 
         Returns:
             New list of constraints with modifiers applied.
@@ -374,20 +451,25 @@ class PopulationStratification:
             )
             return constraints
 
-        adjusted = []
         modifiers = self.populations[population]
 
-        for constraint in constraints:
-            c = constraint.copy()
-            if constraint.name in modifiers:
-                c.apply_modifier(modifiers[constraint.name])
-                logger.debug(
-                    "Applied %s modifier to %s: %s -> %s",
-                    population, constraint.name, constraint.threshold, c.threshold
-                )
-            adjusted.append(c)
+        def _apply_recursive(item: Union[Constraint, ConstraintGroup]) -> Union[Constraint, ConstraintGroup]:
+            if isinstance(item, Constraint):
+                c = item.copy()
+                if item.name in modifiers:
+                    c.apply_modifier(modifiers[item.name])
+                    logger.debug(
+                        "Applied %s modifier to %s: %s -> %s",
+                        population, item.name, item.threshold, c.threshold
+                    )
+                return c
+            elif isinstance(item, ConstraintGroup):
+                g = item.copy()
+                g.children = [_apply_recursive(child) for child in g.children]
+                return g
+            return item
 
-        return adjusted
+        return [_apply_recursive(item) for item in constraints]
 
 
 # -----------------------------
@@ -418,7 +500,7 @@ class CuraFrame:
 
     def __init__(
         self,
-        safety_constraints: List[Constraint],
+        safety_constraints: List[Union[Constraint, ConstraintGroup]],
         name: Optional[str] = None,
         max_history: int = 1000,
     ):
@@ -426,7 +508,7 @@ class CuraFrame:
         Initialize CuraFrame with safety constraints.
 
         Args:
-            safety_constraints: List of non-negotiable safety limits
+            safety_constraints: List of non-negotiable safety limits or constraint groups
             name: Optional name for this framework instance (for logging)
             max_history: Maximum number of evaluation results to retain in
                 history (default: 1000). Older entries are discarded.
@@ -436,7 +518,7 @@ class CuraFrame:
         self.population_stratifier = PopulationStratification()
         self.evaluation_history: deque = deque(maxlen=max_history)
         self._constraints_by_name: Dict[str, Constraint] = {}
-        self._population_constraints_cache: Dict[Optional[str], List[Constraint]] = {}
+        self._population_constraints_cache: Dict[Optional[str], List[Union[Constraint, ConstraintGroup]]] = {}
 
         # Validate constraints at initialization
         self._validate_constraints()
@@ -445,20 +527,29 @@ class CuraFrame:
         """Ensure all constraints are properly configured."""
         seen_names = set()
         constraints_by_name: Dict[str, Constraint] = {}
-        for constraint in self.safety_constraints:
-            if constraint.name in seen_names:
-                raise ValueError(f"Duplicate constraint name: {constraint.name}")
-            seen_names.add(constraint.name)
-            constraints_by_name[constraint.name] = constraint
 
-            # Warn about low-confidence critical constraints
-            if constraint.severity == Severity.CRITICAL:
-                if constraint.provenance and constraint.provenance.requires_verification():
-                    logger.warning(
-                        "CRITICAL constraint '%s' has low confidence (%.2f). "
-                        "Consider additional validation.",
-                        constraint.name, constraint.provenance.confidence
-                    )
+        def _validate_recursive(item: Union[Constraint, ConstraintGroup]) -> None:
+            if isinstance(item, Constraint):
+                if item.name in seen_names:
+                    raise ValueError(f"Duplicate constraint name: {item.name}")
+                seen_names.add(item.name)
+                constraints_by_name[item.name] = item
+
+                # Warn about low-confidence critical constraints
+                if item.severity == Severity.CRITICAL:
+                    if item.provenance and item.provenance.requires_verification():
+                        logger.warning(
+                            "CRITICAL constraint '%s' has low confidence (%.2f). "
+                            "Consider additional validation.",
+                            item.name, item.provenance.confidence
+                        )
+            elif isinstance(item, ConstraintGroup):
+                for child in item.children:
+                    _validate_recursive(child)
+
+        for item in self.safety_constraints:
+            _validate_recursive(item)
+
         self._constraints_by_name = constraints_by_name
         self._population_constraints_cache.clear()
 
@@ -480,7 +571,7 @@ class CuraFrame:
     def _get_constraints_for_population(
         self,
         population: Optional[str]
-    ) -> List[Constraint]:
+    ) -> List[Union[Constraint, ConstraintGroup]]:
         if population in self._population_constraints_cache:
             return self._population_constraints_cache[population]
 
@@ -524,72 +615,126 @@ class CuraFrame:
         missing_constraints = 0
         candidate_name = candidate.name if hasattr(candidate, 'name') else None
 
-        # Evaluate each constraint
-        for constraint in constraints:
-            value = candidate.get(constraint.name)
+        # Recursively evaluate constraints & constraint groups
+        def _eval_recursive(item: Union[Constraint, ConstraintGroup]) -> bool:
+            nonlocal evaluated_constraints, missing_constraints
+            if isinstance(item, Constraint):
+                value = candidate.get(item.name)
 
-            # Handle missing data
-            if value is None:
-                if strict:
-                    result = EvaluationResult(
-                        status=EvaluationStatus.INDETERMINATE,
-                        notes=f"Missing required property: {constraint.name}",
-                        candidate_name=candidate_name
+                # Handle missing data
+                if value is None:
+                    if strict:
+                        raise KeyError(item.name)
+                    else:
+                        warnings.append(
+                            f"Property '{item.name}' missing, constraint skipped"
+                        )
+                        missing_constraints += 1
+                        return True  # Skipped, count as satisfied/passed for this run
+
+                # Evaluate constraint
+                try:
+                    satisfied = item.evaluate(value)
+                except TypeError as e:
+                    logger.error("Constraint evaluation failed: %s", e)
+                    raise TypeError(f"Constraint evaluation error: {e}") from e
+                evaluated_constraints += 1
+
+                # Record violation if constraint not satisfied
+                if not satisfied:
+                    confidence = (
+                        item.provenance.confidence
+                        if item.provenance
+                        else 1.0
                     )
-                    self.evaluation_history.append(result)
-                    return result
-                else:
-                    warnings.append(
-                        f"Property '{constraint.name}' missing, constraint skipped"
+
+                    violations.append(
+                        Violation(
+                            constraint=item.name,
+                            observed=value,
+                            threshold=item.threshold,
+                            rationale=item.rationale,
+                            severity=item.severity,
+                            confidence=confidence
+                        )
                     )
-                    missing_constraints += 1
-                    continue
 
-            # Evaluate constraint
-            try:
-                satisfied = constraint.evaluate(value)
-            except TypeError as e:
-                logger.error("Constraint evaluation failed: %s", e)
-                result = EvaluationResult(
-                    status=EvaluationStatus.INDETERMINATE,
-                    notes=f"Constraint evaluation error: {e}",
-                    candidate_name=candidate_name
-                )
-                self.evaluation_history.append(result)
-                return result
-            evaluated_constraints += 1
+                    # Flag low-confidence violations
+                    if item.provenance and not item.provenance.is_well_established():
+                        warnings.append(
+                            f"Violation of '{item.name}' based on "
+                            f"moderate-confidence constraint "
+                            f"({item.provenance.confidence:.2f})"
+                        )
+                return satisfied
 
-            # Record violation if constraint not satisfied
-            if not satisfied:
-                confidence = (
-                    constraint.provenance.confidence
-                    if constraint.provenance
-                    else 1.0
-                )
+            elif isinstance(item, ConstraintGroup):
+                if not item.children:
+                    return True
+                child_results = []
+                for child in item.children:
+                    child_results.append(_eval_recursive(child))
+                if item.op == LogicOp.AND:
+                    return all(child_results)
+                elif item.op == LogicOp.OR:
+                    return any(child_results)
+            return True
 
-                violations.append(
-                    Violation(
-                        constraint=constraint.name,
-                        observed=value,
-                        threshold=constraint.threshold,
-                        rationale=constraint.rationale,
-                        severity=constraint.severity,
-                        confidence=confidence
-                    )
-                )
-
-                # Flag low-confidence violations
-                if constraint.provenance and not constraint.provenance.is_well_established():
-                    warnings.append(
-                        f"Violation of '{constraint.name}' based on "
-                        f"moderate-confidence constraint "
-                        f"({constraint.provenance.confidence:.2f})"
-                    )
+        try:
+            passed = True
+            for constraint in constraints:
+                if not _eval_recursive(constraint):
+                    passed = False
+        except KeyError as e:
+            missing_prop_name = str(e.args[0])
+            result = EvaluationResult(
+                status=EvaluationStatus.INDETERMINATE,
+                notes=f"Missing required property: {missing_prop_name}",
+                candidate_name=candidate_name
+            )
+            self.evaluation_history.append(result)
+            return result
+        except TypeError as e:
+            result = EvaluationResult(
+                status=EvaluationStatus.INDETERMINATE,
+                notes=f"Constraint evaluation error: {e}",
+                candidate_name=candidate_name
+            )
+            self.evaluation_history.append(result)
+            return result
 
         # Determine overall status
         if violations:
-            status = EvaluationStatus.REJECTED
-            notes = f"Failed {len(violations)} constraint(s)"
+            # If the top level constraint has groups, passing/failing is governed by the recursive logic structure.
+            # However, standard flat constraints are strictly evaluated and failures result in rejection.
+            # To be absolutely sure, if we have logic groups, some children violations could be present but the group as a whole might be SATISFIED (via OR).
+            # Let's perform a second logic-only pass to check if the top-level constraints/groups are genuinely satisfied.
+            def _is_satisfied_recursive(item: Union[Constraint, ConstraintGroup]) -> bool:
+                if isinstance(item, Constraint):
+                    value = candidate.get(item.name)
+                    if value is None:
+                        return True # skip/indeterminate handled above
+                    try:
+                        return item.evaluate(value)
+                    except Exception:
+                        return False
+                elif isinstance(item, ConstraintGroup):
+                    if not item.children:
+                        return True
+                    child_results = [_is_satisfied_recursive(child) for child in item.children]
+                    if item.op == LogicOp.AND:
+                        return all(child_results)
+                    elif item.op == LogicOp.OR:
+                        return any(child_results)
+                return True
+
+            is_overall_satisfied = all(_is_satisfied_recursive(c) for c in constraints)
+            if not is_overall_satisfied:
+                status = EvaluationStatus.REJECTED
+                notes = f"Failed {len(violations)} constraint(s)"
+            else:
+                status = EvaluationStatus.ACCEPTED
+                notes = "All constraints satisfied (some non-critical/alternative violations ignored via OR logic)"
         elif evaluated_constraints == 0:
             status = EvaluationStatus.INDETERMINATE
             if missing_constraints > 0:
@@ -609,12 +754,17 @@ class CuraFrame:
             else:
                 notes = "All constraints satisfied"
 
+        # Compute structured gap analysis advisor report
+        from .advisor import compute_gap_analysis
+        gap_report = compute_gap_analysis(constraints, candidate)
+
         result = EvaluationResult(
             status=status,
             violations=violations,
             warnings=warnings,
             notes=notes,
-            candidate_name=candidate_name
+            candidate_name=candidate_name,
+            gap_analysis=gap_report
         )
 
         self.evaluation_history.append(result)
