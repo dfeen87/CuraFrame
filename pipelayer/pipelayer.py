@@ -1,3 +1,4 @@
+# Licensed under the PolyForm Noncommercial License 1.0.0
 """
 CuraFrame — PIPELAYER Domain
 Version: 1.0.0 - Production Grade

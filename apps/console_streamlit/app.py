@@ -1,3 +1,4 @@
+# Licensed under the PolyForm Noncommercial License 1.0.0
 """
 CuraFrame Console — Streamlit Application
 
@@ -1607,5 +1608,5 @@ st.caption(
     "CuraFrame Console v1.0 | "
     "Inspired by Krüger & Feeney (2025) — CardiAnx-1 Dual-Domain Concept | "
     "See `PHILOSOPHY.md` for framework principles | "
-    "[MIT License](https://github.com/dfeen87/CuraFrame/blob/main/LICENSE)"
+    "[PolyForm Noncommercial License 1.0.0](https://github.com/dfeen87/CuraFrame/blob/main/LICENSE)"
 )

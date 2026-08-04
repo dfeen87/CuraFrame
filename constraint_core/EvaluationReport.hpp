@@ -1,3 +1,4 @@
+// Licensed under the PolyForm Noncommercial License 1.0.0
 #ifndef CURAFRAME_EVALUATION_REPORT_HPP
 #define CURAFRAME_EVALUATION_REPORT_HPP
 

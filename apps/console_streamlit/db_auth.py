@@ -1,3 +1,4 @@
+# Licensed under the PolyForm Noncommercial License 1.0.0
 """
 Database and Authentication Logic for CuraFrame Console.
 Shared database helpers are imported from cura_frame.db.

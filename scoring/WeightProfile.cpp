@@ -1,3 +1,4 @@
+// Licensed under the PolyForm Noncommercial License 1.0.0
 #include "WeightProfile.hpp"
 
 // All WeightProfile methods are implemented inline in WeightProfile.hpp because
