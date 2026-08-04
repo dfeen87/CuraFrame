@@ -1,3 +1,4 @@
+// Licensed under the PolyForm Noncommercial License 1.0.0
 #ifndef CURAFRAME_SCORING_PIPELINE_HPP
 #define CURAFRAME_SCORING_PIPELINE_HPP
 

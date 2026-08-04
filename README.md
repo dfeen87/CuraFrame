@@ -1,6 +1,6 @@
 # CuraFrame: Constraint-Driven Therapeutic Design Reasoning
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-blue.svg)](https://polyformproject.org/licenses/noncommercial/1.0.0)
 [![CI](https://github.com/dfeen87/CuraFrame/actions/workflows/ci.yml/badge.svg)](https://github.com/dfeen87/CuraFrame/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)
 
@@ -170,7 +170,7 @@ CuraFrame/
 ├── pytest.ini                    # Test configuration
 ├── CITATION.cff                  # Software citation metadata
 ├── README.md                     # This file
-└── LICENSE                       # MIT License
+└── LICENSE                       # PolyForm Noncommercial License
 ```
 
 ### Architectural Intent
@@ -791,9 +791,9 @@ For questions about:
 
 ## License
 
-CuraFrame is now **100% open-source under the MIT License**.
+CuraFrame is licensed under the **PolyForm Noncommercial License 1.0.0**.
 
-You are free to use, modify, distribute, and sublicense the software in accordance with the MIT License terms. Please preserve copyright and license notices in distributed copies.
+This license permits non-commercial use, including personal study, research, experimentation, education, evaluation, and other uses without an anticipated commercial application. Commercial use, proprietary integration, resale, or use in revenue-generating products or services requires a separate commercial license from the project maintainer. Please preserve copyright and license notices in distributed copies and see `LICENSE` for the full terms.
 
 No warranty is provided (software is "as is"). See the `LICENSE` file for complete legal text.
 
@@ -818,7 +818,7 @@ If CuraFrame is used in research, publications, or technical reports, please cit
   year = {2026},
   version = {3.0.0},
   url = {https://github.com/dfeen87/CuraFrame},
-  license = {MIT}
+  license = {PolyForm Noncommercial 1.0.0}
 }
 ```
 
@@ -965,4 +965,4 @@ Thank you to the scientific community for establishing the knowledge base that C
 I would like to acknowledge **Microsoft Copilot**, **Anthropic Claude**, and **Google Jules** for their meaningful assistance in refining concepts, improving clarity, and strengthening the overall quality of this work.
 
 ## Enterprise Consulting & Integration
-This architecture is fully open-source under the MIT License. If your organization requires custom scaling, proprietary integration, or dedicated technical consulting to deploy these models at an enterprise level, please reach out at: dfeen87@gmail.com
+This architecture is available under the PolyForm Noncommercial License 1.0.0. If your organization requires commercial use, custom scaling, proprietary integration, or dedicated technical consulting to deploy these models at an enterprise level, please reach out at: dfeen87@gmail.com

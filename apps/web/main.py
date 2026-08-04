@@ -1,3 +1,4 @@
+# Licensed under the PolyForm Noncommercial License 1.0.0
 """CuraFrame Web Application — FastAPI entry point."""
 
 from __future__ import annotations

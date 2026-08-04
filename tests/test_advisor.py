@@ -1,3 +1,4 @@
+# Licensed under the PolyForm Noncommercial License 1.0.0
 """
 CuraFrame Gap Analysis Advisor & Nested Logical Primitives Tests.
 """

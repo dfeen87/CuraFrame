@@ -1,3 +1,4 @@
+# Licensed under the PolyForm Noncommercial License 1.0.0
 """CuraFrame shared database layer."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+// Licensed under the PolyForm Noncommercial License 1.0.0
 #ifndef CURAFRAME_WEIGHTED_SCORING_ENGINE_HPP
 #define CURAFRAME_WEIGHTED_SCORING_ENGINE_HPP
 

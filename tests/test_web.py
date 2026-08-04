@@ -1,3 +1,4 @@
+# Licensed under the PolyForm Noncommercial License 1.0.0
 """
 Tests for the CuraFrame web application (FastAPI).
 
