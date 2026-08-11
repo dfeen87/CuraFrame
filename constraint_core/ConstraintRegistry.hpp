@@ -1,4 +1,4 @@
-// Licensed under the PolyForm Noncommercial License 1.0.0
+// Copyright (c) Don Michael Feeney Jr. Licensed under the MIT License.
 #ifndef CURAFRAME_CONSTRAINT_REGISTRY_HPP
 #define CURAFRAME_CONSTRAINT_REGISTRY_HPP
 

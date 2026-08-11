@@ -1,4 +1,4 @@
-// Licensed under the PolyForm Noncommercial License 1.0.0
+// Copyright (c) Don Michael Feeney Jr. Licensed under the MIT License.
 #ifndef CURAFRAME_IMMUNOLOGIC_BUNDLE_HPP
 #define CURAFRAME_IMMUNOLOGIC_BUNDLE_HPP
 

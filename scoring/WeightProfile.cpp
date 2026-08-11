@@ -1,4 +1,4 @@
-// Licensed under the PolyForm Noncommercial License 1.0.0
+// Copyright (c) Don Michael Feeney Jr. Licensed under the MIT License.
 #include "WeightProfile.hpp"
 
 // All WeightProfile methods are implemented inline in WeightProfile.hpp because
