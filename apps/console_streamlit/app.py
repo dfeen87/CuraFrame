@@ -428,11 +428,12 @@ candidate_text = json.dumps(candidate_dict, indent=2)
 
 st.markdown("---")
 
-tab_eval, tab_sweep, tab_custom, tab_matrix = st.tabs([
+tab_eval, tab_sweep, tab_custom, tab_matrix, tab_interact = st.tabs([
     "🔍 Candidate Evaluation",
     "📈 Parameter Sweep & Boundary Mapping",
     "👥 Custom Population Profiles",
-    "📊 Multi-Bundle Matrix"
+    "📊 Multi-Bundle Matrix",
+    "🔗 Chemical Interaction & Weakest Link"
 ])
 
 with tab_eval:
@@ -1601,6 +1602,160 @@ with tab_matrix:
                 use_container_width=True,
                 key="download_csv_grid_btn"
             )
+
+
+# -----------------------------
+# Tab: Chemical Interaction & Weakest Link Analysis
+# -----------------------------
+
+with tab_interact:
+    st.header("🔗 Chemical Interaction & Weakest Link Analysis")
+    st.caption("Identify safety bottlenecks, epistemic uncertainties, and coupled liabilities in your API.")
+
+    col_anal_btn, col_anal_info = st.columns([1, 3])
+    with col_anal_btn:
+        run_analysis = st.button("🔗 Analyze API Interactions", type="primary", use_container_width=True)
+    with col_anal_info:
+        st.caption("Computes normalized safety margins, uncovers coupled risk parameters, and recommends synthetic optimization paths.")
+
+    if run_analysis:
+        try:
+            # Build framework and candidate
+            raw = json.loads(candidate_text)
+            cand = Candidate(
+                name=raw.get("name", "unnamed"),
+                properties=raw.get("properties", {}),
+                provenance=raw.get("provenance")
+            )
+
+            constraints = bundle_info["fn"]()
+            cura = CuraFrame(constraints, name=f"CuraFrame::{bundle_name}")
+
+            # Register population modifiers
+            if use_population and population:
+                if population in POPULATION_MODIFIERS:
+                    pop_mods = {
+                        k: v for k, v in POPULATION_MODIFIERS[population].items()
+                        if k != "description"
+                    }
+                    cura.add_population(population, pop_mods)
+                else:
+                    custom_pops = db_auth.get_custom_populations(st.session_state['user'])
+                    selected_custom_pop = next((p for p in custom_pops if p["name"] == population), None)
+                    if selected_custom_pop:
+                        pop_mods = {}
+                        for mod in selected_custom_pop["modifiers"]:
+                            param = mod["parameter"]
+                            op = mod["operator"]
+                            val = mod["value"]
+                            pop_mods[param] = make_custom_modifier(op, val)
+                            if param == "clearance":
+                                pop_mods["hepatic_clearance"] = make_custom_modifier(op, val)
+                            elif param == "hepatic_clearance":
+                                pop_mods["clearance"] = make_custom_modifier(op, val)
+                        cura.add_population(population, pop_mods)
+
+            pop_arg = population if use_population else None
+
+            # Import our analyzer
+            from cura_frame.interactions import analyze_interactions
+            analysis = analyze_interactions(cand, cura, population=pop_arg, strict=strict)
+
+            st.session_state['last_analysis'] = analysis
+            st.session_state['last_analysis_candidate'] = cand
+            st.session_state['last_analysis_bundle'] = bundle_name
+            st.session_state['last_analysis_pop'] = pop_arg
+            st.session_state['last_analysis_strict'] = strict
+
+        except Exception as e:
+            st.error(f"❌ **Analysis failed:** {e}")
+            st.exception(e)
+
+    if 'last_analysis' in st.session_state:
+        analysis = st.session_state['last_analysis']
+        cand = st.session_state['last_analysis_candidate']
+        b_name = st.session_state['last_analysis_bundle']
+
+        st.markdown("---")
+
+        # Display Status
+        status_colors = {
+            "accepted": "🟢 ACCEPTED",
+            "rejected": "🔴 REJECTED",
+            "indeterminate": "🟡 INDETERMINATE"
+        }
+        status_val = analysis["status"]
+        st.subheader(f"Analysis for `{cand.name}` ({status_colors.get(status_val, status_val.upper())})")
+        st.write(f"Evaluated against bundle: **{b_name}**")
+
+        # 1. Weakest Links
+        st.markdown("### 🎯 Primary Weakest Links")
+        col_phys, col_epist = st.columns(2)
+
+        with col_phys:
+            st.markdown("#### 🧱 Physical Weakest Link (Safety Bottleneck)")
+            wl_phys = analysis["physical_weakest_link"]
+            if wl_phys:
+                status_emoji = "🔴" if not wl_phys["satisfied"] else "🟡"
+                st.info(
+                    f"{status_emoji} **{wl_phys['name']}**\n\n"
+                    f"- **Observed:** `{wl_phys['observed']}`\n"
+                    f"- **Threshold:** `{wl_phys['threshold']}`\n"
+                    f"- **Normalized Margin:** `{wl_phys['margin']:.4f}`\n"
+                    f"- **Severity:** `{wl_phys['severity'].value.upper()}`\n\n"
+                    f"**Rationale:** {wl_phys['rationale']}"
+                )
+            else:
+                st.success("No evaluated parameters. Unable to determine physical weakest link.")
+
+        with col_epist:
+            st.markdown("#### 🔬 Epistemic Weakest Link (Highest Uncertainty)")
+            wl_epist = analysis["epistemic_weakest_link"]
+            if wl_epist:
+                st.warning(
+                    f"⚠️ **{wl_epist['name']}**\n\n"
+                    f"- **Scientific Confidence:** `{wl_epist['confidence']:.2f}` / 1.00\n"
+                    f"- **Observed Value:** `{wl_epist['observed']}`\n"
+                    f"- **Threshold:** `{wl_epist['threshold']}`\n\n"
+                    f"**Provenance Rationale:** {wl_epist['rationale']}"
+                )
+            else:
+                st.success("No evaluated parameters. Unable to determine epistemic weakest link.")
+
+        # 2. Coupled / Synergistic Risk Analysis
+        st.markdown("---")
+        st.markdown("### 🤝 Coupled Chemical Interaction Risks")
+        st.write("Coupled risks analyze synergistic interactions between multiple physicochemical parameters that dictate overall safety.")
+
+        coupled_risks = analysis["coupled_risks"]
+        if coupled_risks:
+            for risk in coupled_risks:
+                with st.expander(f"⚖️ **{risk['name']}** — Level: `{risk['level']}`", expanded=(risk['level'] == "HIGH")):
+                    col_pb, col_details = st.columns([1, 2])
+                    with col_pb:
+                        st.metric("Risk Score", f"{risk['score']:.2f} / 10.00")
+                        st.progress(risk['score'] / 10.0)
+                    with col_details:
+                        st.markdown(f"**Description:** {risk['description']}")
+                        st.markdown(f"**Parameters involved:** {', '.join([f'`{p}`' for p in risk['parameters_involved']])}")
+        else:
+            st.info("No coupled risks identified for the current parameter set.")
+
+        # 3. Chemical Synthesis Optimization Recommendations
+        st.markdown("---")
+        st.markdown("### 🧪 Chemical Synthesis & Structure Optimization Recommendations")
+        st.write("To maximize drug safety while saving synthesis time, focus resources on addressing the weakest link using the following tailored organic chemistry strategies.")
+
+        recs = analysis["optimization_recommendations"]
+        if recs:
+            for rec in recs:
+                st.markdown(f"#### 🛠️ Suggestions for Parameter: `{rec['parameter']}` (Action: **{rec['action'].upper()}**)")
+                st.caption(rec['rationale'])
+                for strategy in rec['chemical_strategies']:
+                    st.markdown(f"- {strategy}")
+        else:
+            st.success("🎉 Excellent safety profile! No urgent synthetic modifications recommended.")
+
 
 # Credits
 st.markdown("---")

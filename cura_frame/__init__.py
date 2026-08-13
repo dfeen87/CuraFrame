@@ -32,6 +32,9 @@ from .sensitivity import (
     run_2d_sweep,
     find_inflection_points,
 )
+from .interactions import (
+    analyze_interactions,
+)
 
 # Constraint library (explicit, opt-in usage)
 from .constraints_library import (
@@ -83,6 +86,7 @@ __all__ = [
     "run_1d_sweep",
     "run_2d_sweep",
     "find_inflection_points",
+    "analyze_interactions",
 
     # Constraint library (explicit exports)
     "logP_max",
