@@ -2,6 +2,11 @@
 
 All notable changes to the C++ parallel evaluation universe will be documented in this file.
 
+## [5.0.0] - 2026-04-11
+
+### Changed
+- Bumped project version to 5.0.0.
+
 ## [3.0.0] - 2026-04-10 - Weighted Scoring Engine
 
 ### Added

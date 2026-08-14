@@ -1,8 +1,8 @@
-# CuraFrame Weighted Multi-Constraint Scoring Engine (v3.0.0)
+# CuraFrame Weighted Multi-Constraint Scoring Engine (v5.0.0)
 
 ## Overview
 
-The Weighted Multi-Constraint Scoring Engine is a subsystem added in v3.0.0 that sits above the existing constraint bundles. It takes the output (signals, falsifications, and narrative summaries) from all bundles and distills them into a unified, modular, and configurable **Composite Stability Score**.
+The Weighted Multi-Constraint Scoring Engine is a subsystem added in v5.0.0 that sits above the existing constraint bundles.
 
 This system does not alter or modify the underlying deterministic bundle evaluation logic. Instead, it aggregates results and applies domain-specific weighting, penalties, and bonuses to produce a nuanced report of therapeutic candidate viability.
 

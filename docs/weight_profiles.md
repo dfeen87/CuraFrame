@@ -1,4 +1,4 @@
-# Weight Profiles (v3.0.0)
+# Weight Profiles (v5.0.0)
 
 ## Design and Intent
 
