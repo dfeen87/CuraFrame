@@ -2,52 +2,144 @@
 {% block title %}Dashboard — CuraFrame{% endblock %}
 
 {% block content %}
-<h1 style="margin-bottom:1.5rem">👋 Welcome, {{ user }}</h1>
+<div style="margin-bottom: 2rem;">
+  <span style="font-size: 0.85rem; font-weight: 700; color: #4a6fa5; text-transform: uppercase; letter-spacing: 0.05em;">CuraFrame Systems Governance</span>
+  <h1 style="margin-top: 0.25rem; font-size: 2.2rem; font-weight: 800; color: #0f172a; tracking: -0.025em;">👋 Welcome back, {{ user }}</h1>
+  <p style="color: #64748b; font-size: 1rem; margin-top: 0.5rem;">Access constraint validation engines, boundary sweeps, and analytical reports for systems-level therapeutic design.</p>
+</div>
 
-<div class="grid">
-  <div class="feature-card">
-    <div class="icon">🧮</div>
-    <h3>Calculator</h3>
-    <p>Enter candidate properties and evaluate them against safety constraint bundles.</p>
-    <a href="/calculator" class="btn btn-primary">Open Calculator</a>
-  </div>
+<!-- SECTION 1: Core Reasoning Engines -->
+<div style="margin-top: 2rem; margin-bottom: 2rem;">
+  <h2 style="font-size: 1.3rem; font-weight: 800; color: #1e293b; margin-bottom: 1rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+    🧠 Core Reasoning Engines
+  </h2>
 
-  <div class="feature-card">
-    <div class="icon">🧬</div>
-    <h3>Full Console</h3>
-    <p>Advanced constraint evaluation with population stratification, JSON input and export.</p>
-    <a href="https://curaframe-console.onrender.com" target="_blank" rel="noopener" class="btn btn-secondary">Open Console ↗</a>
-  </div>
+  <div class="grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
 
-  <div class="feature-card">
-    <div class="icon">📋</div>
-    <h3>Constraint Bundles</h3>
-    <p>Available bundles: Core Safety, Lipinski Ro5, CNS, Cardiology, CardiAnx.</p>
-    <a href="/calculator" class="btn btn-secondary">Evaluate Now</a>
-  </div>
+    <div class="feature-card" style="display: flex; flex-direction: column; justify-content: space-between; height: 100%;">
+      <div>
+        <div class="icon">🧮</div>
+        <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">Constraint Calculator</h3>
+        <p style="font-size: 0.88rem; color: #64748b; line-height: 1.5; margin-bottom: 1rem;">
+          Evaluate candidate properties against standard safety constraint bundles in a streamlined interface.
+        </p>
+      </div>
+      <a href="/calculator" class="btn btn-primary" style="margin-top: auto; display: block; text-align: center;">Open Calculator</a>
+    </div>
 
-  <div class="feature-card">
-    <div class="icon">🗒️</div>
-    <h3>My Logs</h3>
-    <p>View your personal history of recorded evaluation results.</p>
-    <a href="/logs" class="btn btn-secondary">View Logs</a>
-  </div>
+    <div class="feature-card" style="display: flex; flex-direction: column; justify-content: space-between; height: 100%; border: 2px solid #e2e8f0; box-shadow: 0 4px 12px rgba(74, 111, 165, 0.08);">
+      <div>
+        <div class="icon" style="position: relative;">🔗<span style="position: absolute; top: -5px; right: -5px; font-size: 0.65rem; background: #e0f2fe; color: #0369a1; font-weight: bold; padding: 2px 6px; border-radius: 999px;">NEW</span></div>
+        <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">Interaction Analysis</h3>
+        <p style="font-size: 0.88rem; color: #64748b; line-height: 1.5; margin-bottom: 1rem;">
+          Run physical/epistemic weakest link diagnostics, compute safety margins, and evaluate coupled ADMET risks.
+        </p>
+      </div>
+      <a href="/interactions" class="btn btn-primary" style="background: #0f172a; color: #fff; margin-top: auto; display: block; text-align: center;">Run Analysis</a>
+    </div>
 
-  <div class="feature-card">
-    <div class="icon">📈</div>
-    <h3>Sensitivity Sweep</h3>
-    <p>Perform multi-point boundary sweeps to discover safety envelope limits and transitions.</p>
-    <a href="/sweep" class="btn btn-primary">Open Sweep</a>
+    <div class="feature-card" style="display: flex; flex-direction: column; justify-content: space-between; height: 100%;">
+      <div>
+        <div class="icon">📈</div>
+        <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">Sensitivity Sweep</h3>
+        <p style="font-size: 0.88rem; color: #64748b; line-height: 1.5; margin-bottom: 1rem;">
+          Perform multi-point boundary sweeps to discover safety envelope limits and map compliance transitions.
+        </p>
+      </div>
+      <a href="/sweep" class="btn btn-primary" style="margin-top: auto; display: block; text-align: center;">Open Sweep</a>
+    </div>
+
   </div>
 </div>
 
-<div class="card" style="margin-top:2rem">
-  <h2>About CuraFrame</h2>
-  <p style="line-height:1.7;color:#475569">
-    CuraFrame is a <strong>constraint-driven reasoning framework</strong> for safe, systems-level
-    therapeutic design exploration. It evaluates candidates against explicit safety and design
-    boundaries — it does <em>not</em> generate molecules, optimise properties, or provide clinical
-    recommendations.
+<!-- SECTION 2: Extended Diagnostics & Systems Collaboration -->
+<div style="margin-top: 2.5rem; margin-bottom: 2.5rem;">
+  <h2 style="font-size: 1.3rem; font-weight: 800; color: #1e293b; margin-bottom: 1rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem;">
+    📊 Extended Diagnostics & Collaboration
+  </h2>
+
+  <div class="grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+
+    <div class="feature-card" style="display: flex; flex-direction: column; justify-content: space-between; height: 100%;">
+      <div>
+        <div class="icon">🔬</div>
+        <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">Multi-Bundle Form</h3>
+        <p style="font-size: 0.88rem; color: #64748b; line-height: 1.5; margin-bottom: 1rem;">
+          Evaluate candidate designs against every active constraint bundle in parallel to identify broad liabilities.
+        </p>
+      </div>
+      <a href="/form" class="btn btn-secondary" style="margin-top: auto; display: block; text-align: center;">All-Tests Form</a>
+    </div>
+
+    <div class="feature-card" style="display: flex; flex-direction: column; justify-content: space-between; height: 100%;">
+      <div>
+        <div class="icon">🗒️</div>
+        <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">Evaluation Logs</h3>
+        <p style="font-size: 0.88rem; color: #64748b; line-height: 1.5; margin-bottom: 1rem;">
+          Review your recorded candidate history and saved evaluation statuses for compliance tracking.
+        </p>
+      </div>
+      <a href="/logs" class="btn btn-secondary" style="margin-top: auto; display: block; text-align: center;">View Logs</a>
+    </div>
+
+    <div class="feature-card" style="display: flex; flex-direction: column; justify-content: space-between; height: 100%;">
+      <div>
+        <div class="icon">🧬</div>
+        <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">Full Console</h3>
+        <p style="font-size: 0.88rem; color: #64748b; line-height: 1.5; margin-bottom: 1rem;">
+          Access the external Streamlit console for population modifier editing, multi-bundle matrices, and JSON import.
+        </p>
+      </div>
+      <a href="https://curaframe-console.onrender.com" target="_blank" rel="noopener" class="btn btn-secondary" style="margin-top: auto; display: block; text-align: center;">Open Console ↗</a>
+    </div>
+
+  </div>
+</div>
+
+<!-- SECTION 3: CuraFrame v5.0.0 Architecture & Features Content Block -->
+<div class="card" style="margin-top: 3rem; border: 1px solid #e2e8f0; border-radius: 12px; padding: 2.5rem; background: #fafbfc;">
+  <h2 style="font-size: 1.5rem; font-weight: 800; color: #0f172a; margin-bottom: 1rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem;">🧬 CuraFrame v5.0.0 Core Engineering Principles</h2>
+  <p style="color: #475569; font-size: 0.95rem; line-height: 1.7; margin-bottom: 2rem;">
+    The v5.0.0 release introduces a suite of advanced features focused on <strong>quantitative, multivariable chemical systems exploration</strong>. CuraFrame evaluates compounds against explicitly defined physiological design envelopes without generating hypothetical molecules or providing clinical guidelines. Our reasoning engine utilizes five foundational structures:
   </p>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+
+    <div style="background: white; border: 1px solid #e2e8f0; padding: 1.25rem; border-radius: 8px;">
+      <h3 style="font-size: 1.05rem; font-weight: 700; color: #1e293b; margin-bottom: 0.5rem;">📊 API Safety Margin Evaluation</h3>
+      <p style="color: #64748b; font-size: 0.88rem; line-height: 1.5;">
+        Normalizes compliance margins for each active parameter. Gives medicinal chemists quantitative insight into how comfortably a candidate resides within safety limits, replacing strict binary pass/fail logic with continuous scaling.
+      </p>
+    </div>
+
+    <div style="background: white; border: 1px solid #e2e8f0; padding: 1.25rem; border-radius: 8px;">
+      <h3 style="font-size: 1.05rem; font-weight: 700; color: #1e293b; margin-bottom: 0.5rem;">🧱 Physical Weakest Links</h3>
+      <p style="color: #64748b; font-size: 0.88rem; line-height: 1.5;">
+        Isolates the single most restrictive safety bottleneck in a candidate design. This pinpoints which physical, in vitro, or pharmacokinetic parameter is closest to violating constraints or exhibits the most severe failure.
+      </p>
+    </div>
+
+    <div style="background: white; border: 1px solid #e2e8f0; padding: 1.25rem; border-radius: 8px;">
+      <h3 style="font-size: 1.05rem; font-weight: 700; color: #1e293b; margin-bottom: 0.5rem;">🔬 Epistemic Weakest Links</h3>
+      <p style="color: #64748b; font-size: 0.88rem; line-height: 1.5;">
+        Tracks and reports confidence levels for every active constraint. Identifies parameters built on lower levels of literature-validated or expert provenance, highlighting exactly where focused in vitro assays are most needed.
+      </p>
+    </div>
+
+    <div style="background: white; border: 1px solid #e2e8f0; padding: 1.25rem; border-radius: 8px;">
+      <h3 style="font-size: 1.05rem; font-weight: 700; color: #1e293b; margin-bottom: 0.5rem;">⚖️ Coupled/Synergistic Risks</h3>
+      <p style="color: #64748b; font-size: 0.88rem; line-height: 1.5;">
+        Models synergistic risks between coupled parameters, such as <strong>Lipophilicity-hERG Cardiotoxicity</strong>, <strong>Lipophilicity-CYP3A4 DDI</strong>, <strong>CNS BBB Permeability Balance</strong>, and <strong>Lattice-versus-Grease Solubility</strong>.
+      </p>
+    </div>
+
+    <div style="background: white; border: 1px solid #e2e8f0; padding: 1.25rem; border-radius: 8px;">
+      <h3 style="font-size: 1.05rem; font-weight: 700; color: #1e293b; margin-bottom: 0.5rem;">🧪 Structure-Modification Guidance</h3>
+      <p style="color: #64748b; font-size: 0.88rem; line-height: 1.5;">
+        Converts weakest-link diagnostics into targeted organic chemistry recommendations. Provides validated strategies to alter molecular weight, decrease hERG blockade, optimize PSA, and improve dissolution without losing target potency.
+      </p>
+    </div>
+
+  </div>
 </div>
 {% endblock %}

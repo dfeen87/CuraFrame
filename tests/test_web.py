@@ -622,6 +622,62 @@ class TestAllBundlesForm:
 
 
 # ---------------------------------------------------------------------------
+# Interactions Analysis (/interactions)
+# ---------------------------------------------------------------------------
+
+class TestInteractions:
+    def test_interactions_redirects_unauthenticated(self, client):
+        """GET /interactions redirects unauthenticated users to /login."""
+        response = client.get("/interactions")
+        assert response.status_code == 200
+        assert b"Log In" in response.content or b"login" in response.content.lower()
+
+    def test_interactions_get_returns_html_when_authenticated(self, registered_client):
+        """GET /interactions returns the interaction analysis page for signed-in users."""
+        response = registered_client.get("/interactions")
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert b"Chemical Interaction & Weakest Link Analysis" in response.content
+
+    def test_interactions_post_evaluates_safe_candidate(self, registered_client):
+        """POST /interactions evaluates a safe candidate and returns an ACCEPTED result with safety margins."""
+        response = registered_client.post(
+            "/interactions",
+            data={
+                "logP": "3.0",
+                "hERG_IC50": "20.0",
+                "beta1_selectivity": "150.0",
+                "bundle": "core-safety",
+            },
+        )
+        assert response.status_code == 200
+        body = response.content
+        assert b"ACCEPTED" in body
+        assert b"Safety Margin" in body or b"margin" in body.lower()
+        assert b"Physical Bottleneck" in body
+
+    def test_interactions_post_evaluates_unsafe_candidate(self, registered_client):
+        """POST /interactions evaluates an unsafe candidate and returns a REJECTED result with coupled risk details."""
+        response = registered_client.post(
+            "/interactions",
+            data={
+                "logP": "5.0",            # high logP triggers several liabilities/violations
+                "hERG_IC50": "2.0",       # critical hERG violation
+                "CYP3A4_IC50": "1.5",     # critical CYP3A4 violation/synergy
+                "aqueous_solubility": "5.0", # low solubility + high logP -> synergistic risk
+                "bundle": "core-safety",
+            },
+        )
+        assert response.status_code == 200
+        body = response.content
+        assert b"REJECTED" in body
+        assert b"Coupled Chemical Interaction Risks" in body
+        assert b"Physical Bottleneck" in body
+        assert b"Epistemic Uncertainty" in body
+        assert b"Chemical Synthesis & Structure-Modification Guidance" in body
+
+
+# ---------------------------------------------------------------------------
 # Navigation menu
 # ---------------------------------------------------------------------------
 

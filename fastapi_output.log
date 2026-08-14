@@ -1,15 +1,36 @@
-INFO:     Started server process [100381]
+INFO:     Started server process [145408]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:     127.0.0.1:45912 - "GET /register HTTP/1.1" 200 OK
-INFO:     127.0.0.1:45912 - "POST /register HTTP/1.1" 302 Found
-INFO:     127.0.0.1:45912 - "GET /login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:45912 - "POST /login HTTP/1.1" 302 Found
-INFO:     127.0.0.1:45912 - "GET /dashboard HTTP/1.1" 200 OK
-INFO:     127.0.0.1:45912 - "GET /sweep HTTP/1.1" 200 OK
-INFO:     127.0.0.1:45912 - "POST /sweep HTTP/1.1" 200 OK
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:59496 - "GET /register HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59496 - "POST /register HTTP/1.1" 302 Found
+INFO:     127.0.0.1:59496 - "GET /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59496 - "POST /login HTTP/1.1" 302 Found
+INFO:     127.0.0.1:59496 - "GET /dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59496 - "GET /interactions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59496 - "POST /interactions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45606 - "GET /register HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45606 - "POST /register HTTP/1.1" 302 Found
+INFO:     127.0.0.1:45606 - "GET /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45606 - "POST /login HTTP/1.1" 302 Found
+INFO:     127.0.0.1:45606 - "GET /dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45606 - "GET /interactions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45606 - "POST /interactions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48678 - "GET /register HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48678 - "POST /register HTTP/1.1" 302 Found
+INFO:     127.0.0.1:48678 - "GET /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48678 - "POST /login HTTP/1.1" 302 Found
+INFO:     127.0.0.1:48678 - "GET /dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48678 - "GET /interactions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48678 - "POST /interactions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55510 - "GET /register HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55510 - "POST /register HTTP/1.1" 302 Found
+INFO:     127.0.0.1:55510 - "GET /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55510 - "POST /login HTTP/1.1" 302 Found
+INFO:     127.0.0.1:55510 - "GET /dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55510 - "GET /interactions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55510 - "POST /interactions HTTP/1.1" 200 OK
 INFO:     Shutting down
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [100381]
+INFO:     Finished server process [145408]
