@@ -376,3 +376,107 @@ def sweep_post(
                 **values,
             }
         )
+
+
+@router.get("/interactions", response_class=HTMLResponse)
+def interactions_get(request: Request, user: Optional[str] = Depends(get_current_user)):
+    if not user:
+        return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
+    templates: Jinja2Templates = request.app.state.templates
+    return templates.TemplateResponse(
+        request,
+        "interactions.html",
+        {
+            "user": user,
+            "analysis": None,
+            "error": None,
+            "bundles": get_available_bundles(),
+        },
+    )
+
+
+@router.post("/interactions", response_class=HTMLResponse)
+def interactions_post(
+    request: Request,
+    user: Optional[str] = Depends(get_current_user),
+    logP: Optional[float] = Form(default=None),
+    hERG_IC50: Optional[float] = Form(default=None),
+    beta1_selectivity: Optional[float] = Form(default=None),
+    molecular_weight: Optional[float] = Form(default=None),
+    polar_surface_area: Optional[float] = Form(default=None),
+    hydrogen_bond_donors: Optional[float] = Form(default=None),
+    hydrogen_bond_acceptors: Optional[float] = Form(default=None),
+    Kd_5HT1A: Optional[float] = Form(default=None),
+    Kd_5HT2A: Optional[float] = Form(default=None),
+    Kd_D2: Optional[float] = Form(default=None),
+    plasma_half_life: Optional[float] = Form(default=None),
+    CYP3A4_IC50: Optional[float] = Form(default=None),
+    aqueous_solubility: Optional[float] = Form(default=None),
+    bundle: str = Form(default="core-safety"),
+):
+    if not user:
+        return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
+
+    templates: Jinja2Templates = request.app.state.templates
+    values = {
+        "logP": logP,
+        "hERG_IC50": hERG_IC50,
+        "beta1_selectivity": beta1_selectivity,
+        "molecular_weight": molecular_weight,
+        "polar_surface_area": polar_surface_area,
+        "hydrogen_bond_donors": hydrogen_bond_donors,
+        "hydrogen_bond_acceptors": hydrogen_bond_acceptors,
+        "Kd_5HT1A": Kd_5HT1A,
+        "Kd_5HT2A": Kd_5HT2A,
+        "Kd_D2": Kd_D2,
+        "plasma_half_life": plasma_half_life,
+        "CYP3A4_IC50": CYP3A4_IC50,
+        "aqueous_solubility": aqueous_solubility,
+        "bundle": bundle,
+        "bundles": get_available_bundles(),
+    }
+    properties = _build_properties(
+        logP=logP,
+        hERG_IC50=hERG_IC50,
+        beta1_selectivity=beta1_selectivity,
+        molecular_weight=molecular_weight,
+        polar_surface_area=polar_surface_area,
+        hydrogen_bond_donors=hydrogen_bond_donors,
+        hydrogen_bond_acceptors=hydrogen_bond_acceptors,
+        Kd_5HT1A=Kd_5HT1A,
+        Kd_5HT2A=Kd_5HT2A,
+        Kd_D2=Kd_D2,
+        plasma_half_life=plasma_half_life,
+        CYP3A4_IC50=CYP3A4_IC50,
+        aqueous_solubility=aqueous_solubility,
+    )
+
+    try:
+        from cura_frame import CuraFrame, Candidate
+        from cura_frame.cli import resolve_bundle
+        from cura_frame.interactions import analyze_interactions
+
+        constraints = resolve_bundle(bundle)
+        cura = CuraFrame(constraints, name=f"CuraFrame_Web_{bundle}")
+
+        candidate = Candidate(name="web_interactions", properties=properties)
+        analysis = analyze_interactions(candidate, cura, population=None, strict=False)
+    except (TypeError, ValueError):
+        return templates.TemplateResponse(
+            request,
+            "interactions.html",
+            {"user": user, "analysis": None, "error": "Invalid input provided.", **values},
+        )
+    except Exception as e:
+        logger.exception("Unexpected interactions analysis failure for user=%s bundle=%s", user, bundle)
+        return templates.TemplateResponse(
+            request,
+            "interactions.html",
+            {"user": user, "analysis": None, "error": f"An internal error occurred: {e}", **values},
+        )
+
+    return templates.TemplateResponse(
+        request,
+        "interactions.html",
+        {"user": user, "analysis": analysis, "error": None, **values},
+    )
