@@ -275,6 +275,37 @@ def test_a_corrupted_ledger_does_not_validate_clean(ledger_root, corrupt, expect
     assert "not valid JSON" in findings[0]
 
 
+def test_non_object_json_row_is_detected(ledger_root):
+    frame = _frame()
+    frame.evaluate(_passing())
+
+    path = governance.ledger_path(ledger_root)
+    # Write valid JSON that is a list instead of an object envelope
+    path.write_text("[]\n", encoding="utf-8")
+
+    findings = governance.verify()
+    assert findings, "a ledger with non-object JSON must not validate clean"
+    assert "not a JSON object" in findings[0]
+
+
+def test_append_handles_missing_trailing_newline(ledger_root):
+    frame = _frame()
+    frame.evaluate(_passing())
+
+    path = governance.ledger_path(ledger_root)
+    content = path.read_text(encoding="utf-8")
+    assert content.endswith("\n")
+    # Strip the trailing newline
+    path.write_text(content.rstrip("\r\n"), encoding="utf-8")
+
+    # Append a second record
+    frame.evaluate(_failing())
+
+    rows = _rows(ledger_root)
+    assert len(rows) == 2
+    assert governance.verify() == []
+
+
 def test_a_half_written_final_row_is_detected(ledger_root):
     frame = _frame()
     for _ in range(3):
