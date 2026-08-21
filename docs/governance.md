@@ -150,7 +150,7 @@ and again at 420 and requires the two to be identical.
 | `cura_frame/governance/schema.py` | a small JSON Schema subset, so there is no new dependency |
 | `cura_frame/governance/sink.py` | shapes an `EvaluationResult` into a record |
 | `cura_frame/core.py` | `+26 / −4` — `_commit_evaluation()` and its three call sites |
-| `tests/test_governance.py` | 20 controls: the three rules, the diagnostic, the chain, the contract, concurrency |
+| `tests/test_governance.py` | 24 controls: the three rules, the diagnostic, the chain, the contract, concurrency |
 | `.curaframe/verdicts.schema.json` | the contract; tracked |
 | `.curaframe/verdicts.jsonl` | the ledger; gitignored |
 

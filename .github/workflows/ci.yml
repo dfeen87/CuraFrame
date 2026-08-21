@@ -35,34 +35,15 @@ jobs:
           CURAFRAME_LEDGER_ROOT: ${{ github.workspace }}
         run: pytest
 
+      # `--require-rows` is what closes the cost of the recorder's own safety
+      # rule: because it degrades to silence rather than raise, a broken
+      # recorder and an idle one look identical from outside. If the suite ran
+      # and wrote nothing, that is a failure rather than a clean result.
+      #
+      # The same command runs locally, so this check cannot drift from the one
+      # a developer can reproduce.
       - name: Verify the verdict ledger
-        run: |
-          python - <<'PY'
-          import sys
-          from pathlib import Path
-          from cura_frame import governance
-
-          root = Path.cwd()
-          findings = governance.validate(root)
-
-          # `read()` is strict and raises on a file that is not a ledger, so the
-          # row count is taken defensively: losing the finding to a traceback
-          # would leave the log saying nothing useful about a tampered ledger,
-          # which is the failure this step exists to prevent.
-          try:
-              rows = len(governance.read(root))
-          except governance.LedgerError:
-              rows = "unreadable"
-
-          print(f"verdict ledger: {rows} rows, chain {'ok' if not findings else 'BROKEN'}")
-          for finding in findings:
-              print(f"  {finding}")
-
-          if rows == 0:
-              print("  no verdicts were recorded; the recorder did not run")
-              sys.exit(1)
-          sys.exit(1 if findings else 0)
-          PY
+        run: python -m cura_frame.governance verify --require-rows
 
       - name: CLI smoke test
         run: python -m cura_frame.cli --help

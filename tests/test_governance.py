@@ -481,3 +481,49 @@ def test_tightening_the_contract_reports_rows_that_no_longer_fit(ledger_root):
     findings = governance.verify()
     assert any("reviewed_by" in f for f in findings), findings
     assert "breaks the declared contract" in findings[0]
+
+
+# ── the command line ─────────────────────────────────────────────────────────
+
+
+def test_verify_command_exits_zero_on_a_clean_ledger(ledger_root, capsys):
+    from cura_frame.governance.__main__ import main
+
+    _frame().evaluate(_passing())
+    assert main(["--root", str(ledger_root), "verify"]) == 0
+    assert "chain ok" in capsys.readouterr().out
+
+
+def test_verify_command_reports_a_tampered_ledger_without_crashing(ledger_root, capsys):
+    """A gate reports findings. Losing one to a traceback is the failure mode."""
+    from cura_frame.governance.__main__ import main
+
+    _frame().evaluate(_passing())
+    path = governance.ledger_path(ledger_root)
+    path.write_text("CORRUPTED NOT JSON\n", encoding="utf-8")
+
+    assert main(["--root", str(ledger_root), "verify"]) == 1
+    output = capsys.readouterr().out
+    assert "unreadable" in output
+    assert "not valid JSON" in output
+
+
+def test_require_rows_is_what_catches_a_recorder_that_did_not_run(ledger_root, capsys):
+    """The recorder degrades to silence, so an empty ledger is indistinguishable
+    from a broken one unless something says an empty ledger is a failure."""
+    from cura_frame.governance.__main__ import main
+
+    assert main(["--root", str(ledger_root), "verify"]) == 0
+    assert main(["--root", str(ledger_root), "verify", "--require-rows"]) == 1
+    assert "the recorder did not run" in capsys.readouterr().out
+
+
+def test_show_command_lists_recorded_verdicts(ledger_root, capsys):
+    from cura_frame.governance.__main__ import main
+
+    _frame().evaluate(_failing())
+    assert main(["--root", str(ledger_root), "show"]) == 0
+    output = capsys.readouterr().out
+    assert "CAND-FAIL" in output
+    assert "rejected" in output
+    assert "hERG_IC50_uM" in output  # the first violation is summarised inline
