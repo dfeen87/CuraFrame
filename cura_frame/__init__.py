@@ -12,7 +12,7 @@ boundaries.
 See docs/PHILOSOPHY.md and docs/ETHICAL_USE.md for guiding principles.
 """
 
-__version__ = "5.0.0"
+__version__ = "6.0.0"
 
 from .core import (
     CuraFrame,

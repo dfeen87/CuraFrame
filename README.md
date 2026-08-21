@@ -3,10 +3,12 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/dfeen87/CuraFrame/actions/workflows/ci.yml/badge.svg)](https://github.com/dfeen87/CuraFrame/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)
+![Version](https://img.shields.io/badge/version-6.0.0-blue.svg)
 
 ## Table of Contents
 - [Abstract](#abstract)
 - [Overview](#overview)
+- [Governance Ledger (CuraFrame V6 Upgrade)](#governance-ledger-curaframe-v6-upgrade)
 - [Key Features](#key-features)
 - [Repository Structure](#repository-structure)
 - [Theoretical Foundation](#theoretical-foundation)
@@ -79,6 +81,50 @@ CuraFrame explicitly **does not**:
 
 ---
 
+## **📘 Governance Ledger (CuraFrame V6 Upgrade)**
+CuraFrame now includes an optional, off‑by‑default **hash‑chained governance ledger** that records every governed decision produced by the engine — **ACCEPTED**, **REJECTED**, or **INDETERMINATE** — along with violations, severity, provenance, and epistemic confidence.
+
+This upgrade was made possible through an exceptional contribution from **Flamehaven ([@flamehaven01](https://github.com/flamehaven01))**, whose engineering rigor and clarity helped formalize the governance philosophy CuraFrame was designed for.
+
+### **What this ledger provides**
+- A tamper‑evident, append‑only record of evaluation outcomes
+- Full constraint‑level provenance and gap‑analysis retention
+- Schema‑validated rows defined in `.curaframe/verdicts.schema.json`
+- Zero new dependencies — **standard library only**
+- No impact on evaluation correctness or runtime safety
+- Fully reversible and off‑by‑default until `CURAFRAME_LEDGER_ROOT` is set
+
+### **How it works**
+CuraFrame’s evaluation engine already converges on a single commit point for verdicts. With the ledger enabled, each verdict is also recorded through a governance sink and chained using deterministic hashes. Verification tools can detect:
+
+- Edited verdicts
+- Deleted rows
+- Corrupted JSON
+- Contract violations
+- Silent recorder failures
+
+This ensures that scientific decisions produced by CuraFrame can be audited, reproduced, and falsified — a core principle of the system.
+
+### **Try it**
+You can explore the ledger in seconds:
+
+```
+python -m cura_frame.governance demo
+```
+
+This runs in a temporary directory, records two verdicts, verifies the chain, allows manual corruption, and demonstrates detection — without writing anything outside the sandbox.
+
+### **Philosophy**
+This governance layer reflects the long‑term direction of CuraFrame:
+**transparent, auditable, tamper‑evident scientific decision‑making.**
+
+It does not alter verdicts, does not raise into the evaluation path, and does not introduce external dependencies. It simply provides a durable, verifiable record of what CuraFrame already produces.
+
+### **Acknowledgment**
+A major thank‑you to **Flamehaven ([@flamehaven01](https://github.com/flamehaven01))** for the depth, precision, and care behind this upgrade. Their contribution strengthens CuraFrame’s foundation and advances the project’s commitment to trustworthy computational governance.
+
+---
+
 ## Key Features
 
 ### 1. Constraint-as-Object Formalism
@@ -125,13 +171,22 @@ Zero external dependencies in the core engine ensures:
 ## Repository Structure
 ```
 CuraFrame/
+├── .curaframe/                   # Governance ledger schema
+│   └── verdicts.schema.json
 ├── cura_frame/                   # Core reasoning engine (library)
-│   ├── core.py                   # Constraint evaluation engine
-│   ├── constraints_library.py    # Canonical constraint definitions
+│   ├── governance/               # Hash-chained governance ledger system
+│   │   ├── ledger.py
+│   │   ├── schema.py
+│   │   └── sink.py
+│   ├── advisor.py                # Parameter gap analysis & diagnostics
 │   ├── bundles.py                # Bundle registry helpers
+│   ├── cli.py                    # Command-line interface
 │   ├── comparators.py            # Comparator semantics
+│   ├── constraints_library.py    # Canonical constraint definitions
+│   ├── core.py                   # Constraint evaluation engine
 │   ├── db.py                     # SQLite-backed auth/user helpers
-│   └── cli.py                    # Command-line interface
+│   ├── interactions.py           # Chemical interaction & weakest link analysis
+│   └── sensitivity.py            # Parameter sensitivity & sweep tools
 ├── apps/                         # Application interfaces
 │   ├── console_streamlit/        # Streamlit interactive console
 │   │   ├── app.py
@@ -142,7 +197,7 @@ CuraFrame/
 │       ├── core/
 │       ├── db/
 │       └── templates/
-├── constraints/                  # Domain constraint datasets (JSON)
+├── constraints/                  # Domain constraint datasets (JSON/C++)
 │   ├── anti_infective/
 │   ├── cardiac/
 │   ├── cns/
@@ -814,7 +869,7 @@ If CuraFrame is used in research, publications, or technical reports, please cit
   title = {CuraFrame: Constraint-Driven Therapeutic Design Reasoning},
   author = {Feeney, Don Michael},
   year = {2026},
-  version = {5.0.0},
+  version = {6.0.0},
   url = {https://github.com/dfeen87/CuraFrame},
   license = {MIT}
 }

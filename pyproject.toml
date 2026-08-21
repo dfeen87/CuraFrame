@@ -4,6 +4,6 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "CuraFrame"
-version = "5.0.0"
+version = "6.0.0"
 description = "Constraint-driven therapeutic design reasoning framework."
 requires-python = ">=3.9"
