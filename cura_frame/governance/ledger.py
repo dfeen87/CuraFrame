@@ -151,12 +151,18 @@ def read(root: Path | str) -> list[dict[str, Any]]:
         if not line:
             continue
         try:
-            rows.append(json.loads(line))
+            parsed = json.loads(line)
         except json.JSONDecodeError as exc:
             raise LedgerError(
                 f"verdict ledger line {number} is not valid JSON ({exc.msg}); "
                 f"the file has been edited or truncated after it was written"
             ) from exc
+        if not isinstance(parsed, dict):
+            raise LedgerError(
+                f"verdict ledger line {number} is not a JSON object; "
+                f"the file has been edited or corrupted"
+            )
+        rows.append(parsed)
     return rows
 
 
@@ -262,6 +268,15 @@ def _tail_line(path: Path) -> str | None:
             window *= 2
 
 
+def _ends_with_newline(path: Path) -> bool:
+    """True if the file ends with a newline byte, or False if missing."""
+    if not path.is_file() or path.stat().st_size == 0:
+        return True
+    with path.open("rb") as handle:
+        handle.seek(-1, 2)
+        return handle.read(1) in (b"\n", b"\r")
+
+
 def _prev_hash(path: Path, size: int) -> str:
     """The hash the next row should carry, from the hint or from the tail."""
     with _HINT_LOCK:
@@ -279,6 +294,11 @@ def _prev_hash(path: Path, size: int) -> str:
             f"the last line of the verdict ledger is not valid JSON ({exc.msg}); "
             f"refusing to append to a file that has been edited or truncated"
         ) from exc
+    if not isinstance(row, dict):
+        raise LedgerError(
+            "the last line of the verdict ledger is not a JSON object; "
+            "refusing to append to a file that has been edited or corrupted"
+        )
     last = row.get("entry_hash")
     if not isinstance(last, str) or not last:
         raise LedgerError("the last row of the verdict ledger carries no hash")
@@ -322,6 +342,8 @@ def append(root: Path | str, record: dict[str, Any]) -> dict[str, Any]:
             }
             row["entry_hash"] = compute_hash(row)
             payload = json.dumps(row, ensure_ascii=True).encode("utf-8") + b"\n"
+            if size_before > 0 and not _ends_with_newline(path):
+                payload = b"\n" + payload
             handle.write(payload)
             handle.flush()
             with _HINT_LOCK:

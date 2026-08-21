@@ -219,4 +219,4 @@ def verify(root: Optional[Path] = None) -> list[str]:
         return ledger.validate(target)
     except Exception as exc:  # noqa: BLE001 - rule 2
         _state["last_error"] = f"{type(exc).__name__}: {exc}"
-        return []
+        return [f"{type(exc).__name__}: {exc}"]
