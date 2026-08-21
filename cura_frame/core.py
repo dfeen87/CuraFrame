@@ -13,7 +13,7 @@ import logging
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Any, Dict, Generic, List, Optional, Protocol, TypeVar, Union
+from typing import Callable, Any, Dict, Generic, List, Optional, Protocol, Sequence, TypeVar, Union
 
 
 logger = logging.getLogger(__name__)
@@ -582,6 +582,28 @@ class CuraFrame:
         self._population_constraints_cache[population] = constraints
         return constraints
 
+    def _commit_evaluation(
+        self, result: "EvaluationResult", constraints: Sequence["Constraint"] = ()
+    ) -> None:
+        """Commit one evaluation: keep it in history, then record it as evidence.
+
+        The three `evaluate()` return paths already converged on appending to
+        `evaluation_history`; this is that same moment, named. Recording is a
+        side effect of committing a decision rather than a step every caller has
+        to remember.
+
+        The recorder is inert unless `CURAFRAME_LEDGER_ROOT` is set, and by
+        contract it cannot alter `result` or raise into this path. See
+        `cura_frame/governance/`.
+        """
+        self.evaluation_history.append(result)
+        try:
+            from .governance import record
+
+            record(result, constraints)
+        except Exception:  # noqa: BLE001 - recording must never break evaluation
+            pass
+
     def evaluate(
         self,
         candidate: Union[Candidate, CandidateProtocol],
@@ -692,7 +714,7 @@ class CuraFrame:
                 notes=f"Missing required property: {missing_prop_name}",
                 candidate_name=candidate_name
             )
-            self.evaluation_history.append(result)
+            self._commit_evaluation(result, constraints)
             return result
         except TypeError as e:
             result = EvaluationResult(
@@ -700,7 +722,7 @@ class CuraFrame:
                 notes=f"Constraint evaluation error: {e}",
                 candidate_name=candidate_name
             )
-            self.evaluation_history.append(result)
+            self._commit_evaluation(result, constraints)
             return result
 
         # Determine overall status
@@ -767,7 +789,7 @@ class CuraFrame:
             gap_analysis=gap_report
         )
 
-        self.evaluation_history.append(result)
+        self._commit_evaluation(result, constraints)
         return result
 
     def get_constraint(self, name: str) -> Optional[Constraint]:

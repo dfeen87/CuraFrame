@@ -1,0 +1,91 @@
+{
+  "type": "object",
+  "required": [
+    "candidate",
+    "status",
+    "violations",
+    "provenance"
+  ],
+  "properties": {
+    "candidate": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "rejected",
+        "indeterminate"
+      ]
+    },
+    "notes": {
+      "type": "string"
+    },
+    "violations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "constraint",
+          "observed",
+          "threshold",
+          "rationale",
+          "severity",
+          "confidence"
+        ],
+        "properties": {
+          "constraint": {
+            "type": "string"
+          },
+          "observed": {},
+          "threshold": {},
+          "rationale": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "constraint",
+          "source_type",
+          "confidence",
+          "references"
+        ],
+        "properties": {
+          "constraint": {
+            "type": "string"
+          },
+          "source_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "references": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "requires_verification": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "gap_analysis": {
+      "type": "object"
+    }
+  }
+}
