@@ -26,8 +26,24 @@ jobs:
       - name: Import sanity check
         run: python -c "import cura_frame"
 
+      # Recording is off unless CURAFRAME_LEDGER_ROOT is set, so the suite runs
+      # with it on to prove the recorder works end to end rather than only in
+      # its own unit tests. The ledger it writes is gitignored and rebuilt each
+      # run; verifying it below is what makes "the recorder ran" checkable.
       - name: Run test suite
+        env:
+          CURAFRAME_LEDGER_ROOT: ${{ github.workspace }}
         run: pytest
+
+      # `--require-rows` is what closes the cost of the recorder's own safety
+      # rule: because it degrades to silence rather than raise, a broken
+      # recorder and an idle one look identical from outside. If the suite ran
+      # and wrote nothing, that is a failure rather than a clean result.
+      #
+      # The same command runs locally, so this check cannot drift from the one
+      # a developer can reproduce.
+      - name: Verify the verdict ledger
+        run: python -m cura_frame.governance verify --require-rows
 
       - name: CLI smoke test
         run: python -m cura_frame.cli --help
