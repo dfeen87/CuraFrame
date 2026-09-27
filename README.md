@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/dfeen87/CuraFrame/actions/workflows/ci.yml/badge.svg)](https://github.com/dfeen87/CuraFrame/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)
-![Version](https://img.shields.io/badge/version-6.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-6.1.0-blue.svg)
 
 ## Table of Contents
 - [Abstract](#abstract)
@@ -869,7 +869,7 @@ If CuraFrame is used in research, publications, or technical reports, please cit
   title = {CuraFrame: Constraint-Driven Therapeutic Design Reasoning},
   author = {Feeney, Don Michael},
   year = {2026},
-  version = {6.0.0},
+  version = {6.1.0},
   url = {https://github.com/dfeen87/CuraFrame},
   license = {MIT}
 }

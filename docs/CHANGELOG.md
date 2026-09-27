@@ -2,6 +2,11 @@
 
 All notable changes to the C++ parallel evaluation universe will be documented in this file.
 
+## [6.1.0] - 2026-09-27
+
+### Changed
+- Bumped codebase project version to 6.1.0 across all configuration and documentation sources.
+
 ## [5.0.0] - 2026-04-11
 
 ### Changed
