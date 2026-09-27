@@ -3,7 +3,64 @@ import sqlite3
 
 import pytest
 
+from cura_frame.db import execute, fetchall, fetchone
+
 from apps.console_streamlit import db_auth
+
+
+class _PostgresCursor:
+    def __init__(self, row=None, rows=None):
+        self.rowcount = 1
+        self._row = row
+        self._rows = rows or []
+        self.description = [type("Column", (), {"name": "value"})()]
+        self.executed = None
+
+    def execute(self, query, params):
+        self.executed = (query, params)
+
+    def fetchone(self):
+        return self._row
+
+    def fetchall(self):
+        return self._rows
+
+    def close(self):
+        pass
+
+
+class _PostgresConnection:
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def cursor(self):
+        return self._cursor
+
+
+@pytest.mark.parametrize(
+    ("operation", "cursor_kwargs", "expected"),
+    [
+        (execute, {}, 1),
+        (fetchone, {"row": ("one",)}, {"value": "one"}),
+        (fetchall, {"rows": [("one",), ("two",)]}, [{"value": "one"}, {"value": "two"}]),
+    ],
+)
+def test_postgres_operations_convert_qmark_placeholders(operation, cursor_kwargs, expected):
+    cursor = _PostgresCursor(**cursor_kwargs)
+    connection = _PostgresConnection(cursor)
+
+    result = operation(
+        connection,
+        "postgresql://example/test",
+        "SELECT value FROM example WHERE first = ? AND second = ?",
+        (1, 2),
+    )
+
+    assert result == expected
+    assert cursor.executed == (
+        "SELECT value FROM example WHERE first = %s AND second = %s",
+        (1, 2),
+    )
 
 
 @pytest.fixture

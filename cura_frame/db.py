@@ -34,6 +34,11 @@ def is_postgres(db_path: str) -> bool:
     return db_path.startswith("postgresql://") or db_path.startswith("postgres://")
 
 
+def _postgres_query(query: str) -> str:
+    """Convert the qmark placeholders used by callers to psycopg's format."""
+    return query.replace("?", "%s")
+
+
 def get_connection(db_path: str):
     if is_postgres(db_path):
         if psycopg is None:
@@ -51,7 +56,7 @@ def get_connection(db_path: str):
 def execute(conn: Any, db_path: str, query: str, params: tuple = ()) -> Any:
     if is_postgres(db_path):
         with closing(conn.cursor()) as cur:
-            cur.execute(query, params)
+            cur.execute(_postgres_query(query), params)
             return cur.rowcount
     return conn.execute(query, params)
 
@@ -59,7 +64,7 @@ def execute(conn: Any, db_path: str, query: str, params: tuple = ()) -> Any:
 def fetchone(conn: Any, db_path: str, query: str, params: tuple = ()):
     if is_postgres(db_path):
         with closing(conn.cursor()) as cur:
-            cur.execute(query, params)
+            cur.execute(_postgres_query(query), params)
             row = cur.fetchone()
             if row is None:
                 return None
@@ -71,7 +76,7 @@ def fetchone(conn: Any, db_path: str, query: str, params: tuple = ()):
 def fetchall(conn: Any, db_path: str, query: str, params: tuple = ()):
     if is_postgres(db_path):
         with closing(conn.cursor()) as cur:
-            cur.execute(query, params)
+            cur.execute(_postgres_query(query), params)
             rows = cur.fetchall()
             columns = [desc.name for desc in cur.description]
             return [dict(zip(columns, row)) for row in rows]
