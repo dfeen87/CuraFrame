@@ -17,6 +17,8 @@ This application does NOT:
 """
 
 import json
+from typing import Any, Dict
+
 import streamlit as st
 import urllib.parse
 import db_auth
