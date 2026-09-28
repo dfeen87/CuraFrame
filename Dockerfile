@@ -6,7 +6,7 @@ RUN apt-get update \
 
 WORKDIR /opt/curaframe
 COPY . .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt pytest
 
 RUN groupadd --gid 1000 developer \
     && useradd --uid 1000 --gid developer --create-home developer \
