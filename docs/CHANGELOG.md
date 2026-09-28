@@ -2,6 +2,12 @@
 
 All notable changes to the C++ parallel evaluation universe will be documented in this file.
 
+## [6.1.1] - 2026-09-28
+
+### Changed
+- Bumped codebase project version to 6.1.1 across all configuration and documentation sources.
+- Added a pinned, non-root development container that runs Make targets from `/repro`.
+
 ## [6.1.0] - 2026-09-27
 
 ### Changed
