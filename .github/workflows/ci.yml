@@ -33,7 +33,7 @@ jobs:
       - name: Run test suite
         env:
           CURAFRAME_LEDGER_ROOT: ${{ github.workspace }}
-        run: pytest
+        run: make test
 
       # `--require-rows` is what closes the cost of the recorder's own safety
       # rule: because it degrades to silence rather than raise, a broken
