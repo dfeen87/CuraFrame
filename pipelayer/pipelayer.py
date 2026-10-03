@@ -1,7 +1,7 @@
 # Copyright (c) Don Michael Feeney Jr. Licensed under the MIT License.
 """
 CuraFrame — PIPELAYER Domain
-Version: 1.0.0 - Production Grade
+Domain module version: 1.0.0 - Experimental governance model
 
 Pipelayer governance domain for heavy machinery operations, specifically
 sideboom pipelayers used in pipeline construction.
@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from numbers import Real
 from typing import Any, Dict, List, Optional, Tuple
 import logging
 import time
@@ -409,9 +410,32 @@ class PipelayerGovernor:
 
     def evaluate(self, signals: PipelayerSignals) -> PipelayerDecisionResult:
         """Evaluate signals and make a governance decision"""
-        ts = float(signals.timestamp)
+        try:
+            ts = float(signals.timestamp)
+        except (TypeError, ValueError):
+            ts = math.nan
         reasons: List[str] = []
         precautionary_flags: List[str] = []
+
+        invalid = self._invalid_signals(signals, ts)
+        if invalid:
+            # Do not feed malformed evidence into the stateful trust pipeline:
+            # rejected input must neither gain authority nor contaminate the
+            # stability history used by the next valid operation.
+            reasons.extend(f"invalid_signal ({reason})" for reason in invalid)
+            decision = PipelayerDecisionResult(
+                operation_authorized=False,
+                authority_level=AuthorityLevel.SHUTDOWN,
+                decision_outcome=DecisionOutcome.HALT_IMMEDIATELY,
+                validated_trust_score=0.0,
+                confidence_score=0.0,
+                recommendation="invalid_evidence_halt",
+                reasons=reasons,
+                precautionary_flags=["invalid_evidence"],
+                metadata={"timestamp": ts if math.isfinite(ts) else None},
+            )
+            self._log_event(signals, decision, 0.0, reasons, ["invalid_evidence"], ts)
+            return decision
 
         # 1. Check Machine Telemetry
         crit_machine, machine_issues = signals.machine_telemetry.is_critical_threshold_breached()
@@ -429,6 +453,14 @@ class PipelayerGovernor:
         if signals.operator_fatigue_score is not None and signals.operator_fatigue_score > 0.7:
             reasons.append(f"operator_fatigue_high ({signals.operator_fatigue_score:.2f})")
             precautionary_flags.append("operator_fatigue_detected")
+
+        # Policy minima are authorization gates, not advisory scoring inputs.
+        if signals.operation_trust_score < self.policy.min_operation_trust_score:
+            reasons.append("operation_trust_below_policy_minimum")
+            precautionary_flags.append("operation_trust_insufficient")
+        if signals.measurement_reliability < self.policy.min_measurement_reliability:
+            reasons.append("measurement_reliability_below_policy_minimum")
+            precautionary_flags.append("measurement_uncertainty_high")
 
         # 4. Calculate Penalty
         penalty = 0.0
@@ -457,12 +489,105 @@ class PipelayerGovernor:
         decision = self._make_decision(signals, ailee_result, reasons, precautionary_flags, ts)
 
         # 7. Log event for audit trail
-        self.event_log.append({
+        self._log_event(signals, decision, adjusted_score, reasons, precautionary_flags, ts)
+        return decision
+
+    @staticmethod
+    def _invalid_signals(signals: PipelayerSignals, ts: float) -> List[str]:
+        """Return malformed or unsupported evidence; an empty list is valid."""
+        def finite_number(value: Any) -> bool:
+            return isinstance(value, Real) and not isinstance(value, bool) and math.isfinite(value)
+
+        values = {
             "timestamp": ts,
+            "operation_trust_score": signals.operation_trust_score,
+            "measurement_reliability": signals.measurement_reliability,
+            "load_kg": signals.machine_telemetry.load_kg,
+            "boom_angle_deg": signals.machine_telemetry.boom_angle_deg,
+            "counterweight_position_pct": signals.machine_telemetry.counterweight_position_pct,
+            "engine_rpm": signals.machine_telemetry.engine_rpm,
+            "engine_temp_c": signals.machine_telemetry.engine_temp_c,
+            "hydraulic_pressure_bar": signals.machine_telemetry.hydraulic_pressure_bar,
+            "tipping_moment_pct": signals.machine_telemetry.tipping_moment_pct,
+            "load_moment_pct": signals.machine_telemetry.load_moment_pct,
+            "wind_speed_kmh": signals.site_conditions.wind_speed_kmh,
+            "ambient_temp_c": signals.site_conditions.ambient_temp_c,
+            "visibility_m": signals.site_conditions.visibility_m,
+            "ground_slope_pitch_deg": signals.site_conditions.ground_slope_pitch_deg,
+            "ground_slope_roll_deg": signals.site_conditions.ground_slope_roll_deg,
+            "soil_stability_index": signals.site_conditions.soil_stability_index,
+        }
+        if signals.operator_fatigue_score is not None:
+            values["operator_fatigue_score"] = signals.operator_fatigue_score
+        if signals.machine_telemetry.fuel_level_pct is not None:
+            values["fuel_level_pct"] = signals.machine_telemetry.fuel_level_pct
+        if signals.machine_telemetry.battery_voltage is not None:
+            values["battery_voltage"] = signals.machine_telemetry.battery_voltage
+        if signals.site_conditions.wetness_pct is not None:
+            values["wetness_pct"] = signals.site_conditions.wetness_pct
+
+        invalid = [name for name, value in values.items() if not finite_number(value)]
+        unit_intervals = {
+            "operation_trust_score": signals.operation_trust_score,
+            "measurement_reliability": signals.measurement_reliability,
+            "soil_stability_index": signals.site_conditions.soil_stability_index,
+        }
+        if signals.operator_fatigue_score is not None:
+            unit_intervals["operator_fatigue_score"] = signals.operator_fatigue_score
+        invalid.extend(
+            f"{name} outside [0, 1]"
+            for name, value in unit_intervals.items()
+            if finite_number(value) and not 0.0 <= value <= 1.0
+        )
+        non_negative = {
+            "load_kg": signals.machine_telemetry.load_kg,
+            "engine_rpm": signals.machine_telemetry.engine_rpm,
+            "hydraulic_pressure_bar": signals.machine_telemetry.hydraulic_pressure_bar,
+            "tipping_moment_pct": signals.machine_telemetry.tipping_moment_pct,
+            "load_moment_pct": signals.machine_telemetry.load_moment_pct,
+            "wind_speed_kmh": signals.site_conditions.wind_speed_kmh,
+            "visibility_m": signals.site_conditions.visibility_m,
+        }
+        invalid.extend(
+            f"{name} below 0"
+            for name, value in non_negative.items()
+            if finite_number(value) and value < 0.0
+        )
+        percentages = {
+            "counterweight_position_pct": signals.machine_telemetry.counterweight_position_pct,
+        }
+        if signals.machine_telemetry.fuel_level_pct is not None:
+            percentages["fuel_level_pct"] = signals.machine_telemetry.fuel_level_pct
+        if signals.site_conditions.wetness_pct is not None:
+            percentages["wetness_pct"] = signals.site_conditions.wetness_pct
+        invalid.extend(
+            f"{name} outside [0, 100]"
+            for name, value in percentages.items()
+            if finite_number(value) and not 0.0 <= value <= 100.0
+        )
+        if signals.operation_mode == OperationMode.UNKNOWN:
+            invalid.append("operation_mode is UNKNOWN")
+        if signals.machine_model == MachineModel.UNKNOWN:
+            invalid.append("machine_model is UNKNOWN")
+        if signals.pipe_type == PipeType.UNKNOWN:
+            invalid.append("pipe_type is UNKNOWN")
+        return invalid
+
+    def _log_event(
+        self,
+        signals: PipelayerSignals,
+        decision: PipelayerDecisionResult,
+        adjusted_score: float,
+        reasons: List[str],
+        precautionary_flags: List[str],
+        ts: float,
+    ) -> None:
+        self.event_log.append({
+            "timestamp": ts if math.isfinite(ts) else None,
             "operation_mode": signals.operation_mode.value,
             "operator_id": signals.operator_id,
             "adjusted_score": adjusted_score,
-            "ailee_status": ailee_result.status,
+            "ailee_status": decision.ailee_result.status if decision.ailee_result else None,
             "authorized": decision.operation_authorized,
             "outcome": decision.decision_outcome.value,
             "reasons": list(reasons),
@@ -478,7 +603,6 @@ class PipelayerGovernor:
             precautionary_flags,
         )
 
-        return decision
 
     def _make_decision(
         self,
@@ -495,7 +619,13 @@ class PipelayerGovernor:
         outcome = DecisionOutcome.HALT_IMMEDIATELY
         recommendation = "halt_operations"
 
-        if ailee_result.status == SafetyStatus.SAFE:
+        policy_gate_failed = (
+            signals.operation_trust_score < self.policy.min_operation_trust_score
+            or signals.measurement_reliability < self.policy.min_measurement_reliability
+        )
+        if policy_gate_failed:
+            recommendation = "policy_minimum_not_met_halt"
+        elif ailee_result.status == SafetyStatus.SAFE:
             if not precautionary_flags:
                 authorized = True
                 authority_level = AuthorityLevel.FULL_CAPACITY

@@ -12,7 +12,7 @@ boundaries.
 See docs/PHILOSOPHY.md and docs/ETHICAL_USE.md for guiding principles.
 """
 
-__version__ = "6.1.1"
+__version__ = "7.0.0"
 
 from .core import (
     CuraFrame,
@@ -26,7 +26,6 @@ from .core import (
     Severity,
     Violation,
 )
-from .cli import main as cli_main
 from .sensitivity import (
     run_1d_sweep,
     run_2d_sweep,
@@ -69,6 +68,17 @@ from .constraints_library import (
     anti_infective_constraints,
     metabolic_disease_constraints,
 )
+
+
+def cli_main(argv=None):
+    """Run the CLI without eagerly importing its executable module.
+
+    Keeping this public convenience wrapper lazy avoids preloading
+    ``cura_frame.cli`` when Python is about to execute that module with ``-m``.
+    """
+    from .cli import main
+
+    return main(argv)
 
 __all__ = [
     # Core engine & primitives

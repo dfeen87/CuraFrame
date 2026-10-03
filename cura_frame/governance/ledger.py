@@ -102,6 +102,15 @@ class LedgerError(ValueError):
     file on disk is not something this module wrote."""
 
 
+def _reject_json_constant(value: str) -> None:
+    """Reject Python's non-standard NaN/Infinity JSON extensions."""
+    raise ValueError(f"non-standard numeric constant {value}")
+
+
+def _loads_json(payload: str) -> Any:
+    return json.loads(payload, parse_constant=_reject_json_constant)
+
+
 # ── locations ────────────────────────────────────────────────────────────────
 
 
@@ -122,7 +131,10 @@ def _now_utc() -> str:
 
 def _canonical(row: dict[str, Any]) -> str:
     payload = {key: value for key, value in row.items() if key != "entry_hash"}
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True,
+        allow_nan=False,
+    )
 
 
 def compute_hash(row: dict[str, Any]) -> str:
@@ -151,10 +163,10 @@ def read(root: Path | str) -> list[dict[str, Any]]:
         if not line:
             continue
         try:
-            parsed = json.loads(line)
-        except json.JSONDecodeError as exc:
+            parsed = _loads_json(line)
+        except (json.JSONDecodeError, ValueError) as exc:
             raise LedgerError(
-                f"verdict ledger line {number} is not valid JSON ({exc.msg}); "
+                f"verdict ledger line {number} is not valid JSON ({exc}); "
                 f"the file has been edited or truncated after it was written"
             ) from exc
         if not isinstance(parsed, dict):
@@ -179,7 +191,10 @@ def declare(root: Path | str, record_schema: dict[str, Any]) -> Path:
     """Declare what a verdict record must look like. Required before writing."""
     path = contract_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(record_schema, indent=2) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(record_schema, indent=2, allow_nan=False) + "\n",
+        encoding="utf-8",
+    )
     return path
 
 
@@ -190,8 +205,8 @@ def contract(root: Path | str) -> dict[str, Any]:
             f"no verdict contract at {path}; declare one before recording verdicts"
         )
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
+        return _loads_json(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, ValueError) as exc:
         raise LedgerError(f"the verdict contract is not valid JSON: {exc}") from exc
 
 
@@ -288,10 +303,10 @@ def _prev_hash(path: Path, size: int) -> str:
     if tail is None:
         return CHAIN_GENESIS
     try:
-        row = json.loads(tail)
-    except json.JSONDecodeError as exc:
+        row = _loads_json(tail)
+    except (json.JSONDecodeError, ValueError) as exc:
         raise LedgerError(
-            f"the last line of the verdict ledger is not valid JSON ({exc.msg}); "
+            f"the last line of the verdict ledger is not valid JSON ({exc}); "
             f"refusing to append to a file that has been edited or truncated"
         ) from exc
     if not isinstance(row, dict):
@@ -341,7 +356,7 @@ def append(root: Path | str, record: dict[str, Any]) -> dict[str, Any]:
                 "prev_hash": _prev_hash(path, size_before),
             }
             row["entry_hash"] = compute_hash(row)
-            payload = json.dumps(row, ensure_ascii=True).encode("utf-8") + b"\n"
+            payload = json.dumps(row, ensure_ascii=True, allow_nan=False).encode("utf-8") + b"\n"
             if size_before > 0 and not _ends_with_newline(path):
                 payload = b"\n" + payload
             handle.write(payload)

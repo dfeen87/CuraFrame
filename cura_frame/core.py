@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import copy
 import logging
+import math
+from numbers import Real
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
@@ -146,13 +148,26 @@ class Constraint(Generic[T]):
         Raises:
             TypeError: If value and threshold types are incompatible
         """
+        def _reject_non_finite(number: Any, label: str) -> None:
+            if isinstance(number, Real) and not isinstance(number, bool):
+                if not math.isfinite(number):
+                    raise ValueError(f"{label} must be finite, got {number!r}")
+            elif isinstance(number, (tuple, list)):
+                for member in number:
+                    _reject_non_finite(member, label)
+
         try:
+            # Infinity can satisfy a minimum comparator and NaN has surprising
+            # equality semantics. Neither is evidence about a physical design.
+            # Enforce this once for built-in and user-supplied comparators.
+            _reject_non_finite(value, "Observed value")
+            _reject_non_finite(self.threshold, "Constraint threshold")
             return self.comparator(value, self.threshold)
         except (TypeError, ValueError) as e:
             logger.error("Constraint %s evaluation failed: %s", self.name, e)
             raise TypeError(
                 f"Cannot compare {type(value).__name__} to "
-                f"{type(self.threshold).__name__} in constraint '{self.name}'"
+                f"{type(self.threshold).__name__} in constraint '{self.name}': {e}"
             ) from e
 
     def copy(self) -> "Constraint[T]":
