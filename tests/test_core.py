@@ -16,6 +16,7 @@ Tests focus on:
 """
 
 import pytest
+import math
 from typing import List
 
 from cura_frame import (
@@ -148,6 +149,25 @@ class TestBasicEvaluation:
         assert not result.has_critical_violations()
         assert result.candidate_name == "safe_candidate"
 
+    @pytest.mark.parametrize("value", [math.nan, math.inf, -math.inf])
+    def test_non_finite_evidence_is_indeterminate_not_accepted(
+        self, framework: CuraFrame, value: float
+    ):
+        """Non-finite measurements are not valid physical evidence."""
+        candidate = Candidate(
+            name="non_finite",
+            properties={
+                "logP": 3.0,
+                "hERG_IC50": value,
+                "beta1_selectivity": 150.0,
+            },
+        )
+
+        result = framework.evaluate(candidate)
+
+        assert result.status == EvaluationStatus.INDETERMINATE
+        assert "must be finite" in (result.notes or "")
+
     def test_rejects_candidate_on_single_critical_violation(self, framework: CuraFrame):
         """REJECTED when any CRITICAL constraint fails."""
         candidate = Candidate(
@@ -196,6 +216,13 @@ class TestCliHelpers:
     def test_available_bundles_includes_core(self):
         bundles = available_bundles()
         assert "core-safety" in bundles
+
+    def test_cli_reports_authoritative_version(self, capsys):
+        with pytest.raises(SystemExit) as excinfo:
+            cli_main(["--version"])
+
+        assert excinfo.value.code == 0
+        assert capsys.readouterr().out.strip() == "CuraFrame 7.0.0"
 
     def test_evaluate_candidate_accepts_valid_candidate(self, safe_candidate):
         result = evaluate_candidate(

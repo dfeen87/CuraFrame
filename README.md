@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/dfeen87/CuraFrame/actions/workflows/ci.yml/badge.svg)](https://github.com/dfeen87/CuraFrame/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)
-![Version](https://img.shields.io/badge/version-6.1.1-blue.svg)
+![Version](https://img.shields.io/badge/version-7.0.0-blue.svg)
 
 ## Table of Contents
 - [Abstract](#abstract)
@@ -328,9 +328,9 @@ pip install pytest
 
 ### Docker Build
 
-Build the pinned development image with `docker build -t curaframe:6.1.1 .`, then
+Build the pinned development image with `docker build -t curaframe:7.0.0 .`, then
 run a Make target from a project mounted at `/repro`; for example,
-`docker run --rm -v "$PWD:/repro" curaframe:6.1.1 test`.
+`docker run --rm -v "$PWD:/repro" curaframe:7.0.0 test`.
 
 ### Verification
 
@@ -726,13 +726,16 @@ pytest tests/test_core.py -v
 
 ### Continuous Integration
 
-CuraFrame's CI pipeline focuses on **tooling reliability**, not scientific validation:
+CuraFrame's CI pipeline focuses on **tooling reliability**, not scientific validation.
+The BEDROCK baseline and its rationale are documented in
+[`docs/BEDROCK_7.0.0.md`](docs/BEDROCK_7.0.0.md).
 
 **CI Scope** (what is tested):
-- Installation in clean Python environments (3.9, 3.10, 3.11)
+- Installation and tests in clean Python 3.9 and 3.11 environments
 - Unit test suite execution (100% pass rate required)
 - CLI entrypoint functionality in headless environments
 - Package metadata integrity
+- Release-mode compilation of the C++ constraint and scoring library
 
 **CI Limitations** (what is NOT tested):
 - Scientific correctness of constraint thresholds (requires domain expertise)
@@ -875,7 +878,7 @@ If CuraFrame is used in research, publications, or technical reports, please cit
   title = {CuraFrame: Constraint-Driven Therapeutic Design Reasoning},
   author = {Feeney, Don Michael},
   year = {2026},
-  version = {6.1.1},
+  version = {7.0.0},
   url = {https://github.com/dfeen87/CuraFrame},
   license = {MIT}
 }

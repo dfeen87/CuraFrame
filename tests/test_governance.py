@@ -213,6 +213,30 @@ def test_a_record_breaking_the_contract_is_refused(ledger_root):
     assert "breaks the declared contract" in str(excinfo.value)
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_non_finite_numbers_are_not_persisted_as_json(ledger_root, value):
+    """The ledger contract is JSON, whose numeric domain is finite."""
+    from cura_frame.governance import ledger
+
+    record = {
+        "candidate": "X",
+        "status": "rejected",
+        "violations": [{
+            "constraint": "measurement",
+            "observed": value,
+            "threshold": 1.0,
+            "rationale": "finite evidence required",
+            "severity": "CRITICAL",
+            "confidence": 1.0,
+        }],
+        "provenance": [],
+    }
+
+    with pytest.raises(governance.LedgerError, match="finite JSON number"):
+        ledger.append(ledger_root, record)
+    assert not governance.ledger_path(ledger_root).exists()
+
+
 # ── the chain ────────────────────────────────────────────────────────────────
 
 

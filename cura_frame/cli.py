@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 from .core import Candidate, CuraFrame, EvaluationResult
+from . import __version__
 from .constraints_library import (
     cardiAnx_dual_domain_constraints,
     cardiology_oriented_constraints,
@@ -134,6 +135,11 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "Evaluate a candidate JSON against a CuraFrame constraint bundle."
         )
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"CuraFrame {__version__}",
     )
     parser.add_argument(
         "candidate_json",

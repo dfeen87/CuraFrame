@@ -16,6 +16,7 @@ It is 90 lines and owes nothing to its own history.
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 _TYPES: dict[str, type | tuple[type, ...]] = {
@@ -46,6 +47,12 @@ def _check_type(value: Any, expected: str, path: str) -> None:
 
 
 def _check(value: Any, schema: dict[str, Any], path: str) -> None:
+    # NaN and infinity are accepted by Python's JSON extensions but are not
+    # JSON numbers. They also evade minimum/maximum checks because comparisons
+    # with NaN are false, so reject them independently of the declared shape.
+    if isinstance(value, float) and not math.isfinite(value):
+        raise SchemaError(f"{path}: expected a finite JSON number")
+
     expected = schema.get("type")
     if expected:
         _check_type(value, expected, path)
@@ -78,6 +85,8 @@ def _check(value: Any, schema: dict[str, Any], path: str) -> None:
                 _check(item, properties[key], f"{path}.{key}")
             elif schema.get("additionalProperties", True) is False:
                 raise SchemaError(f"{path}: unexpected field {key!r}")
+            else:
+                _check(item, {}, f"{path}.{key}")
 
     if isinstance(value, list):
         low, high = schema.get("minItems"), schema.get("maxItems")
@@ -89,6 +98,9 @@ def _check(value: Any, schema: dict[str, Any], path: str) -> None:
         if item_schema is not None:
             for index, item in enumerate(value):
                 _check(item, item_schema, f"{path}[{index}]")
+        else:
+            for index, item in enumerate(value):
+                _check(item, {}, f"{path}[{index}]")
 
 
 def validate(instance: Any, schema: dict[str, Any], name: str = "record") -> None:

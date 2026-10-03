@@ -1,6 +1,27 @@
 # Changelog
 
-All notable changes to the C++ parallel evaluation universe will be documented in this file.
+All notable CuraFrame changes, including the Python engine and C++ parallel
+evaluation universe, are documented in this file.
+
+## [7.0.0] - 2026-10-03 - BEDROCK hardening baseline
+
+### Security and safety
+- Non-finite numeric candidate evidence now produces an indeterminate result instead of being able to satisfy minimum constraints.
+- The pipelayer governor now fails closed on non-finite, out-of-domain, or unsupported decision evidence without contaminating trust-pipeline history, and enforces configured trust/reliability minima as authorization gates.
+- Governance records reject NaN and infinity rather than writing non-standard JSON numeric tokens.
+
+### Added
+- Regression coverage for finite therapeutic evidence, governance JSON integrity, and malformed pipelayer telemetry/state isolation.
+- `--version` CLI output and a detailed BEDROCK engineering release report.
+
+### CI
+- Python tests and package/version smoke checks now run on supported boundary versions 3.9 and 3.11.
+- The C++ constraint and scoring library is configured and compiled in Release mode.
+
+This major increment establishes a new engineering baseline. It includes
+incompatible validation changes for inputs that were never valid physical or
+JSON evidence; otherwise the public architecture and accepted finite-input
+behavior are preserved.
 
 ## [6.1.1] - 2026-09-28
 
