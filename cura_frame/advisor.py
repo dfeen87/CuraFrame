@@ -96,14 +96,46 @@ def get_comparator_type_and_direction(
 
 def compute_gap_analysis(
     constraints: List[Union[Constraint, ConstraintGroup]],
-    candidate: Union[Candidate, CandidateProtocol]
+    candidate: Union[Candidate, CandidateProtocol],
+    evaluation_context: Optional[Dict[str, Tuple[str, Any]]] = None,
+    root_status_override: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Constructs a structured, nested JSON-serializable report advising on exact parameter gaps.
     """
     def _analyze_recursive(item: Union[Constraint, ConstraintGroup]) -> Dict[str, Any]:
         if isinstance(item, Constraint):
-            observed = candidate.get(item.name)
+            if evaluation_context is not None and item.name in evaluation_context:
+                status_str, observed = evaluation_context[item.name]
+                if status_str == "MISSING_FLAT" or status_str == "MISSING_GROUP":
+                    return {
+                        "id": item.name,
+                        "name": item.name,
+                        "status": "Indeterminate",
+                        "reason": "Missing required property"
+                    }
+                satisfied = (status_str == "PASS")
+            else:
+                observed = candidate.get(item.name)
+                if observed is None:
+                    return {
+                        "id": item.name,
+                        "name": item.name,
+                        "status": "Indeterminate",
+                        "reason": "Missing required property"
+                    }
+
+                try:
+                    satisfied = item.evaluate(observed)
+                except Exception:
+                    satisfied = False
+
+            comp_name = item.comparator.__name__ if hasattr(item.comparator, "__name__") else str(item.comparator)
+            comp_type, delta, direction, msg = get_comparator_type_and_direction(
+                item.name, comp_name, item.threshold, observed
+            )
+
+            # Special case: handle fallback missing properties properly
             if observed is None:
                 return {
                     "id": item.name,
@@ -111,16 +143,6 @@ def compute_gap_analysis(
                     "status": "Indeterminate",
                     "reason": "Missing required property"
                 }
-
-            try:
-                satisfied = item.evaluate(observed)
-            except Exception:
-                satisfied = False
-
-            comp_name = item.comparator.__name__ if hasattr(item.comparator, "__name__") else str(item.comparator)
-            comp_type, delta, direction, msg = get_comparator_type_and_direction(
-                item.name, comp_name, item.threshold, observed
-            )
 
             if satisfied:
                 return {
@@ -147,25 +169,34 @@ def compute_gap_analysis(
         elif isinstance(item, ConstraintGroup):
             children_reports = [_analyze_recursive(child) for child in item.children]
 
-            # Determine status of the group based on children statuses
-            passed_count = sum(1 for c in children_reports if c.get("status") == "Passed")
-            failed_count = sum(1 for c in children_reports if c.get("status") == "Failed")
-            indeterminate_count = sum(1 for c in children_reports if c.get("status") == "Indeterminate")
+            if evaluation_context is not None and item.name in evaluation_context:
+                status_str, _ = evaluation_context[item.name]
+                if status_str == "PASS":
+                    status = "Passed"
+                elif status_str == "FAIL":
+                    status = "Failed"
+                else:
+                    status = "Indeterminate"
+            else:
+                # Fallback to independent aggregation if context is missing
+                passed_count = sum(1 for c in children_reports if c.get("status") == "Passed")
+                failed_count = sum(1 for c in children_reports if c.get("status") == "Failed")
+                indeterminate_count = sum(1 for c in children_reports if c.get("status") == "Indeterminate")
 
-            if item.op == LogicOp.AND:
-                if passed_count == len(children_reports):
-                    status = "Passed"
-                elif indeterminate_count > 0:
-                    status = "Indeterminate"
-                else:
-                    status = "Failed"
-            else: # OR
-                if passed_count > 0:
-                    status = "Passed"
-                elif failed_count == len(children_reports):
-                    status = "Failed"
-                else:
-                    status = "Indeterminate"
+                if item.op == LogicOp.AND:
+                    if failed_count > 0:
+                        status = "Failed"
+                    elif passed_count == len(children_reports):
+                        status = "Passed"
+                    else:
+                        status = "Indeterminate"
+                else: # OR
+                    if passed_count > 0:
+                        status = "Passed"
+                    elif failed_count == len(children_reports):
+                        status = "Failed"
+                    else:
+                        status = "Indeterminate"
 
             report = {
                 "id": item.name,
@@ -177,17 +208,21 @@ def compute_gap_analysis(
             return report
 
     root_children = [_analyze_recursive(item) for item in constraints]
-    # Root acts as an implicit AND bundle
-    passed_count = sum(1 for c in root_children if c.get("status") == "Passed")
-    failed_count = sum(1 for c in root_children if c.get("status") == "Failed")
-    indeterminate_count = sum(1 for c in root_children if c.get("status") == "Indeterminate")
 
-    if passed_count == len(root_children):
-        status = "Passed"
-    elif indeterminate_count > 0:
-        status = "Indeterminate"
+    if root_status_override:
+        status = root_status_override
     else:
-        status = "Failed"
+        # Root acts as an implicit AND bundle
+        failed_count = sum(1 for c in root_children if c.get("status") == "Failed")
+        passed_count = sum(1 for c in root_children if c.get("status") == "Passed")
+        indeterminate_count = sum(1 for c in root_children if c.get("status") == "Indeterminate")
+
+        if failed_count > 0:
+            status = "Failed"
+        elif indeterminate_count > 0 or len(root_children) == 0:
+            status = "Indeterminate"
+        else:
+            status = "Passed"
 
     return {
         "status": status,

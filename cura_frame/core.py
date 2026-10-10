@@ -74,6 +74,10 @@ class ConstraintGroup:
     rationale: Optional[str] = None
     severity: Severity = Severity.CRITICAL
 
+    def __post_init__(self):
+        if not self.children:
+            raise ValueError(f"Empty constraint groups are not permitted: '{self.name}' has no children.")
+
     def copy(self) -> ConstraintGroup:
         """Recursively copy the constraint group and all its children."""
         return ConstraintGroup(
@@ -628,6 +632,20 @@ class CuraFrame:
     ) -> EvaluationResult:
         """
         Evaluate a candidate against all applicable constraints.
+
+        This method traverses the active constraint tree (optionally adjusted by
+        the specified population), computes satisfaction of scientific boundaries,
+        and calculates structured gap advisories.
+
+        Args:
+            candidate: A dictionary-like object mapping property names to observed values.
+            population: Optional identifier for a registered custom patient population.
+            strict: If True, missing data raises a KeyError. If False, allows partial
+                    evaluation for exploratory work and flags missing data in `warnings`.
+
+        Returns:
+            An EvaluationResult containing the final status (ACCEPTED, REJECTED, INDETERMINATE),
+            violations, warnings, notes, and a structured gap analysis report.
         """
 
         # Apply population-specific constraint adjustments
@@ -638,6 +656,8 @@ class CuraFrame:
         evaluated_constraints = 0
         missing_constraints = 0
         candidate_name = candidate.name if hasattr(candidate, 'name') else None
+
+        evaluation_context = {}
 
         # Return enum/strings to distinguish states explicitly
         def _eval_recursive(item: Union[Constraint, ConstraintGroup]) -> str:
@@ -650,6 +670,7 @@ class CuraFrame:
                     else:
                         warnings.append(f"Property '{item.name}' missing, constraint skipped")
                         missing_constraints += 1
+                        evaluation_context[item.name] = ("MISSING_FLAT", None)
                         return "MISSING_FLAT"
 
                 try:
@@ -657,6 +678,9 @@ class CuraFrame:
                 except TypeError as e:
                     logger.error("Constraint evaluation failed: %s", e)
                     raise TypeError(f"Constraint evaluation error: {e}") from e
+
+                eval_res = "PASS" if satisfied else "FAIL"
+                evaluation_context[item.name] = (eval_res, value)
 
                 evaluated_constraints += 1
                 if not satisfied:
@@ -667,37 +691,45 @@ class CuraFrame:
                     ))
                     if item.provenance and not item.provenance.is_well_established():
                         warnings.append(f"Violation of '{item.name}' based on moderate-confidence constraint ({item.provenance.confidence:.2f})")
-                return "PASS" if satisfied else "FAIL"
+                return eval_res
 
             elif isinstance(item, ConstraintGroup):
                 if not item.children:
-                    return "PASS"
+                    evaluation_context[item.name] = ("MISSING_GROUP", None)
+                    return "MISSING_GROUP"
 
                 child_results = [_eval_recursive(child) for child in item.children]
 
                 if item.op == LogicOp.AND:
                     # FAIL + anything -> FAIL
                     if "FAIL" in child_results:
-                        return "FAIL"
-
-                    valid_results = [r for r in child_results if r == "PASS"]
-                    if not valid_results:
-                        # All missing
-                        return "MISSING_GROUP" if "MISSING_GROUP" in child_results else "MISSING_FLAT"
-
-                    # Unresolved OR groups bubbling up should not become an unconditional success
-                    if "MISSING_GROUP" in child_results:
-                        return "MISSING_GROUP"
-
-                    # PASS + MISSING_FLAT (skipped flat constraints) -> PASS in strict=False, to preserve partial evaluation
-                    return "PASS"
+                        res = "FAIL"
+                    else:
+                        valid_results = [r for r in child_results if r == "PASS"]
+                        if not valid_results:
+                            # All missing
+                            res = "MISSING_GROUP" if "MISSING_GROUP" in child_results else "MISSING_FLAT"
+                        # Unresolved OR groups bubbling up should not become an unconditional success
+                        elif "MISSING_GROUP" in child_results:
+                            res = "MISSING_GROUP"
+                        else:
+                            # PASS + MISSING_FLAT (skipped flat constraints) -> PASS in strict=False, to preserve partial evaluation
+                            res = "PASS"
 
                 elif item.op == LogicOp.OR:
                     if "PASS" in child_results:
-                        return "PASS"
-                    if "MISSING_FLAT" in child_results or "MISSING_GROUP" in child_results:
-                        return "MISSING_GROUP"
-                    return "FAIL"
+                        res = "PASS"
+                    elif "MISSING_FLAT" in child_results or "MISSING_GROUP" in child_results:
+                        res = "MISSING_GROUP"
+                    else:
+                        res = "FAIL"
+                else:
+                    raise ValueError(f"Unsupported logical operator: {item.op}")
+
+                evaluation_context[item.name] = (res, None)
+                return res
+
+            evaluation_context[item.name] = ("PASS", None)
             return "PASS"
 
         try:
@@ -748,7 +780,8 @@ class CuraFrame:
 
         # Compute structured gap analysis advisor report
         from .advisor import compute_gap_analysis
-        gap_report = compute_gap_analysis(constraints, candidate)
+        root_status_str = "Passed" if status == EvaluationStatus.ACCEPTED else "Failed" if status == EvaluationStatus.REJECTED else "Indeterminate"
+        gap_report = compute_gap_analysis(constraints, candidate, evaluation_context=evaluation_context, root_status_override=root_status_str)
 
         result = EvaluationResult(
             status=status,

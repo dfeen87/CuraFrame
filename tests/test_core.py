@@ -222,7 +222,7 @@ class TestCliHelpers:
             cli_main(["--version"])
 
         assert excinfo.value.code == 0
-        assert capsys.readouterr().out.strip() == "CuraFrame 7.0.0"
+        assert capsys.readouterr().out.strip() == "CuraFrame 7.0.1"
 
     def test_evaluate_candidate_accepts_valid_candidate(self, safe_candidate):
         result = evaluate_candidate(
