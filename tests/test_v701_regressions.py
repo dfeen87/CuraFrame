@@ -71,3 +71,31 @@ def test_nested_empty_or():
 
     res = cf.evaluate(candidate, strict=False)
     assert res.status == EvaluationStatus.INDETERMINATE
+
+def test_duplicate_names_do_not_override():
+    c1 = Constraint(name="dup", threshold=100.0, comparator=less_than_comparator, rationale="test1")
+    c2 = Constraint(name="dup", threshold=200.0, comparator=less_than_comparator, rationale="test2")
+
+    cg = ConstraintGroup(name="dup", op=LogicOp.AND, children=[c1, c2])
+
+    # Bypass init validation that strictly prevents duplicate root level names since it only applies to constraints.
+    # We test the core evaluator here. We must manually build the CF.
+    cf = CuraFrame(safety_constraints=[])
+    cf.safety_constraints = [cg]
+    candidate = Candidate("test", {"dup": 150.0})
+
+    res = cf.evaluate(candidate, strict=False)
+    assert res.status == EvaluationStatus.REJECTED
+
+    group_report = res.gap_analysis["constraints"][0]
+    child_reports = group_report["children"]
+    c1_report = child_reports[0]
+    c2_report = child_reports[1]
+
+    assert c1_report["status"] == "Failed"
+    assert c2_report["status"] == "Passed"
+
+def test_unsupported_node_type():
+    c1 = Constraint(name="c1", threshold=100.0, comparator=less_than_comparator, rationale="test")
+    with pytest.raises(TypeError, match="Unsupported constraint node type"):
+        CuraFrame(safety_constraints=[c1, "MALFORMED"]) # type: ignore

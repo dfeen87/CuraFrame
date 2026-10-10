@@ -566,6 +566,8 @@ class CuraFrame:
             elif isinstance(item, ConstraintGroup):
                 for child in item.children:
                     _validate_recursive(child)
+            else:
+                raise TypeError(f"Unsupported constraint node type: {type(item)}")
 
         for item in self.safety_constraints:
             _validate_recursive(item)
@@ -670,7 +672,7 @@ class CuraFrame:
                     else:
                         warnings.append(f"Property '{item.name}' missing, constraint skipped")
                         missing_constraints += 1
-                        evaluation_context[item.name] = ("MISSING_FLAT", None)
+                        evaluation_context[id(item)] = ("MISSING_FLAT", None)
                         return "MISSING_FLAT"
 
                 try:
@@ -680,7 +682,7 @@ class CuraFrame:
                     raise TypeError(f"Constraint evaluation error: {e}") from e
 
                 eval_res = "PASS" if satisfied else "FAIL"
-                evaluation_context[item.name] = (eval_res, value)
+                evaluation_context[id(item)] = (eval_res, value)
 
                 evaluated_constraints += 1
                 if not satisfied:
@@ -695,7 +697,7 @@ class CuraFrame:
 
             elif isinstance(item, ConstraintGroup):
                 if not item.children:
-                    evaluation_context[item.name] = ("MISSING_GROUP", None)
+                    evaluation_context[id(item)] = ("MISSING_GROUP", None)
                     return "MISSING_GROUP"
 
                 child_results = [_eval_recursive(child) for child in item.children]
@@ -726,11 +728,10 @@ class CuraFrame:
                 else:
                     raise ValueError(f"Unsupported logical operator: {item.op}")
 
-                evaluation_context[item.name] = (res, None)
+                evaluation_context[id(item)] = (res, None)
                 return res
 
-            evaluation_context[item.name] = ("PASS", None)
-            return "PASS"
+            raise TypeError(f"Unsupported constraint node type: {type(item)}")
 
         try:
             top_level_results = []

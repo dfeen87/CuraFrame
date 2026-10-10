@@ -105,8 +105,8 @@ def compute_gap_analysis(
     """
     def _analyze_recursive(item: Union[Constraint, ConstraintGroup]) -> Dict[str, Any]:
         if isinstance(item, Constraint):
-            if evaluation_context is not None and item.name in evaluation_context:
-                status_str, observed = evaluation_context[item.name]
+            if evaluation_context is not None and id(item) in evaluation_context:
+                status_str, observed = evaluation_context[id(item)]
                 if status_str == "MISSING_FLAT" or status_str == "MISSING_GROUP":
                     return {
                         "id": item.name,
@@ -169,8 +169,8 @@ def compute_gap_analysis(
         elif isinstance(item, ConstraintGroup):
             children_reports = [_analyze_recursive(child) for child in item.children]
 
-            if evaluation_context is not None and item.name in evaluation_context:
-                status_str, _ = evaluation_context[item.name]
+            if evaluation_context is not None and id(item) in evaluation_context:
+                status_str, _ = evaluation_context[id(item)]
                 if status_str == "PASS":
                     status = "Passed"
                 elif status_str == "FAIL":
