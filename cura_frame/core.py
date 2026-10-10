@@ -628,20 +628,6 @@ class CuraFrame:
     ) -> EvaluationResult:
         """
         Evaluate a candidate against all applicable constraints.
-
-        Args:
-            candidate: Hypothetical design to evaluate
-            population: Patient population context (None = general)
-            strict: If True, missing properties -> INDETERMINATE.
-                   If False, missing properties are skipped with warning.
-
-        Returns:
-            EvaluationResult with status and any violations.
-
-        Philosophy:
-            - All safety constraints must be satisfied for ACCEPTED.
-            - Any critical violation results in REJECTED.
-            - Missing data results in INDETERMINATE (unless strict=False).
         """
 
         # Apply population-specific constraint adjustments
@@ -653,76 +639,71 @@ class CuraFrame:
         missing_constraints = 0
         candidate_name = candidate.name if hasattr(candidate, 'name') else None
 
-        # Recursively evaluate constraints & constraint groups
-        def _eval_recursive(item: Union[Constraint, ConstraintGroup]) -> bool:
+        # Return enum/strings to distinguish states explicitly
+        def _eval_recursive(item: Union[Constraint, ConstraintGroup]) -> str:
             nonlocal evaluated_constraints, missing_constraints
             if isinstance(item, Constraint):
                 value = candidate.get(item.name)
-
-                # Handle missing data
                 if value is None:
                     if strict:
                         raise KeyError(item.name)
                     else:
-                        warnings.append(
-                            f"Property '{item.name}' missing, constraint skipped"
-                        )
+                        warnings.append(f"Property '{item.name}' missing, constraint skipped")
                         missing_constraints += 1
-                        return True  # Skipped, count as satisfied/passed for this run
+                        return "MISSING_FLAT"
 
-                # Evaluate constraint
                 try:
                     satisfied = item.evaluate(value)
                 except TypeError as e:
                     logger.error("Constraint evaluation failed: %s", e)
                     raise TypeError(f"Constraint evaluation error: {e}") from e
+
                 evaluated_constraints += 1
-
-                # Record violation if constraint not satisfied
                 if not satisfied:
-                    confidence = (
-                        item.provenance.confidence
-                        if item.provenance
-                        else 1.0
-                    )
-
-                    violations.append(
-                        Violation(
-                            constraint=item.name,
-                            observed=value,
-                            threshold=item.threshold,
-                            rationale=item.rationale,
-                            severity=item.severity,
-                            confidence=confidence
-                        )
-                    )
-
-                    # Flag low-confidence violations
+                    confidence = item.provenance.confidence if item.provenance else 1.0
+                    violations.append(Violation(
+                        constraint=item.name, observed=value, threshold=item.threshold,
+                        rationale=item.rationale, severity=item.severity, confidence=confidence
+                    ))
                     if item.provenance and not item.provenance.is_well_established():
-                        warnings.append(
-                            f"Violation of '{item.name}' based on "
-                            f"moderate-confidence constraint "
-                            f"({item.provenance.confidence:.2f})"
-                        )
-                return satisfied
+                        warnings.append(f"Violation of '{item.name}' based on moderate-confidence constraint ({item.provenance.confidence:.2f})")
+                return "PASS" if satisfied else "FAIL"
 
             elif isinstance(item, ConstraintGroup):
                 if not item.children:
-                    return True
-                child_results = []
-                for child in item.children:
-                    child_results.append(_eval_recursive(child))
+                    return "PASS"
+
+                child_results = [_eval_recursive(child) for child in item.children]
+
                 if item.op == LogicOp.AND:
-                    return all(child_results)
+                    # FAIL + anything -> FAIL
+                    if "FAIL" in child_results:
+                        return "FAIL"
+
+                    valid_results = [r for r in child_results if r == "PASS"]
+                    if not valid_results:
+                        # All missing
+                        return "MISSING_GROUP" if "MISSING_GROUP" in child_results else "MISSING_FLAT"
+
+                    # Unresolved OR groups bubbling up should not become an unconditional success
+                    if "MISSING_GROUP" in child_results:
+                        return "MISSING_GROUP"
+
+                    # PASS + MISSING_FLAT (skipped flat constraints) -> PASS in strict=False, to preserve partial evaluation
+                    return "PASS"
+
                 elif item.op == LogicOp.OR:
-                    return any(child_results)
-            return True
+                    if "PASS" in child_results:
+                        return "PASS"
+                    if "MISSING_FLAT" in child_results or "MISSING_GROUP" in child_results:
+                        return "MISSING_GROUP"
+                    return "FAIL"
+            return "PASS"
 
         try:
-            passed = True
+            top_level_results = []
             for constraint in constraints:
-                if not _eval_recursive(constraint):
-                    passed = False
+                top_level_results.append(_eval_recursive(constraint))
         except KeyError as e:
             missing_prop_name = str(e.args[0])
             result = EvaluationResult(
@@ -741,54 +722,27 @@ class CuraFrame:
             self._commit_evaluation(result, constraints)
             return result
 
-        # Determine overall status
-        if violations:
-            # If the top level constraint has groups, passing/failing is governed by the recursive logic structure.
-            # However, standard flat constraints are strictly evaluated and failures result in rejection.
-            # To be absolutely sure, if we have logic groups, some children violations could be present but the group as a whole might be SATISFIED (via OR).
-            # Let's perform a second logic-only pass to check if the top-level constraints/groups are genuinely satisfied.
-            def _is_satisfied_recursive(item: Union[Constraint, ConstraintGroup]) -> bool:
-                if isinstance(item, Constraint):
-                    value = candidate.get(item.name)
-                    if value is None:
-                        return True # skip/indeterminate handled above
-                    try:
-                        return item.evaluate(value)
-                    except Exception:
-                        return False
-                elif isinstance(item, ConstraintGroup):
-                    if not item.children:
-                        return True
-                    child_results = [_is_satisfied_recursive(child) for child in item.children]
-                    if item.op == LogicOp.AND:
-                        return all(child_results)
-                    elif item.op == LogicOp.OR:
-                        return any(child_results)
-                return True
-
-            is_overall_satisfied = all(_is_satisfied_recursive(c) for c in constraints)
-            if not is_overall_satisfied:
-                status = EvaluationStatus.REJECTED
-                notes = f"Failed {len(violations)} constraint(s)"
+        if "FAIL" in top_level_results:
+            status = EvaluationStatus.REJECTED
+            notes = f"Failed {len(violations)} constraint(s)"
+        elif "MISSING_GROUP" in top_level_results:
+            status = EvaluationStatus.INDETERMINATE
+            if missing_constraints > 0:
+                notes = f"Skipped {missing_constraints} constraint(s) due to missing data"
             else:
-                status = EvaluationStatus.ACCEPTED
-                notes = "All constraints satisfied (some non-critical/alternative violations ignored via OR logic)"
+                notes = "Insufficient data to evaluate constraints completely"
         elif evaluated_constraints == 0:
             status = EvaluationStatus.INDETERMINATE
             if missing_constraints > 0:
-                notes = (
-                    f"Skipped {missing_constraints} constraint(s) due to "
-                    "missing data"
-                )
+                notes = f"Skipped {missing_constraints} constraint(s) due to missing data"
             else:
                 notes = "Insufficient data to evaluate any constraints"
         else:
             status = EvaluationStatus.ACCEPTED
             if missing_constraints > 0:
-                notes = (
-                    f"Evaluated {evaluated_constraints} constraint(s); "
-                    f"skipped {missing_constraints} due to missing data"
-                )
+                notes = f"Evaluated {evaluated_constraints} constraint(s); skipped {missing_constraints} due to missing data"
+            elif violations:
+                notes = "All constraints satisfied (some non-critical/alternative violations ignored via OR logic)"
             else:
                 notes = "All constraints satisfied"
 
