@@ -3,6 +3,14 @@
 All notable CuraFrame changes, including the Python engine and C++ parallel
 evaluation universe, are documented in this file.
 
+## [7.0.1] - Unreleased - Post-BEDROCK Assurance & Patch
+
+### Fixed
+- Fixed an issue where empty constraint groups bypassed evaluation checks and erroneously returned success instead of indeterminate missing states.
+- Reject unsupported logical operators during constraint evaluation rather than silently bypassing them.
+- Fixed a duplicated comparator execution issue where integrated gap-analysis was evaluating constraints a second time. The gap-analysis engine now reads strictly from the context evaluated by the core engine.
+- Fixed inconsistent status agreement between the core evaluator and advisor logic regarding failed and indeterminate states within strict/non-strict OR and AND group paths.
+
 ## [7.0.0] - 2026-10-03 - BEDROCK hardening baseline
 
 ### Security and safety

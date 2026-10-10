@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/dfeen87/CuraFrame/actions/workflows/ci.yml/badge.svg)](https://github.com/dfeen87/CuraFrame/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)
-![Version](https://img.shields.io/badge/version-7.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-7.0.1-blue.svg)
 
 ## Table of Contents
 - [Abstract](#abstract)
@@ -328,9 +328,9 @@ pip install pytest
 
 ### Docker Build
 
-Build the pinned development image with `docker build -t curaframe:7.0.0 .`, then
+Build the pinned development image with `docker build -t curaframe:7.0.1 .`, then
 run a Make target from a project mounted at `/repro`; for example,
-`docker run --rm -v "$PWD:/repro" curaframe:7.0.0 test`.
+`docker run --rm -v "$PWD:/repro" curaframe:7.0.1 test`.
 
 ### Verification
 
@@ -878,7 +878,7 @@ If CuraFrame is used in research, publications, or technical reports, please cit
   title = {CuraFrame: Constraint-Driven Therapeutic Design Reasoning},
   author = {Feeney, Don Michael},
   year = {2026},
-  version = {7.0.0},
+  version = {7.0.1},
   url = {https://github.com/dfeen87/CuraFrame},
   license = {MIT}
 }
